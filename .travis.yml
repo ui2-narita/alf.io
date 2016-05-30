@@ -60,3 +60,17 @@ script:
     - TERM=dumb ./gradlew build jacocoTestReport $PROFILE
 after_success:
     ./gradlew coveralls
+
+env:
+  global:
+   - secure: "LnV8MYnRPVIpDtfCQmld33c6fk0AgBI+dmpuWOs1Mlo4Hx82OmMS9zONJnQ1CaGUALrET6xuLBfROr7TBPd+tjqxzWzm0fic+mZa8CQZMhMkb60QjoOF1P4xcpIq+UJ+bx/43eETdGK5v8PU4c6S7NE2yTActbaHt3vqBF/fY1M="
+
+addons:
+  coverity_scan:
+    project:
+      name: "exteso/alf.io"
+      description: "Alf.io, the open source ticket reservation system"
+    #notification_email:
+    build_command_prepend: ""
+    build_command:   "./gradlew build -x test"
+    branch_pattern: coverity_scan
