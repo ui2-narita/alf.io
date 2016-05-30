@@ -1,18 +1,76 @@
 language: java
+before_script:
+  - psql -c 'create database alfio;' -U postgres
+  - mysql -u root -e 'CREATE DATABASE alfio CHARACTER SET utf8 COLLATE utf8_bin;'
+  - mysql -u root -e 'select VERSION()'
+  - mysql -u root -e 'select @@sql_mode'
 dist: trusty
 sudo: required
 install:
     - TERM=dumb ./gradlew -q assemble
+matrix:
+    include:
+        - jdk: oraclejdk8
+          env: PROFILE="-Ddbenv=HSQLDB"
+          addons:
+              apt:
+                  packages:
+                      - mysql-server
+                      - mysql-client-core-5.5
+                      - mysql-client
+        - jdk: oraclejdk8
+          env: PROFILE="-Ddbenv=PGSQL-TRAVIS -Dpgsql9.1"
+          addons:
+              postgresql: "9.1"
+              apt:
+                  packages:
+                      - mysql-server
+                      - mysql-client-core-5.5
+                      - mysql-client
+        - jdk: oraclejdk8
+          env: PROFILE="-Ddbenv=PGSQL-TRAVIS -Dpgsql9.4"
+          addons:
+              postgresql: "9.4"
+              apt:
+                  packages:
+                      - mysql-server
+                      - mysql-client-core-5.5
+                      - mysql-client
+        - jdk: oraclejdk8
+          env: PROFILE="-Ddbenv=MYSQL -Dmysql5.5"
+          addons:
+              apt:
+                  packages:
+                      - mysql-server
+                      - mysql-client-core-5.5
+                      - mysql-client
+        - jdk: oraclejdk8
+          env: PROFILE="-Ddbenv=MYSQL -Dmysql5.6"
+          addons:
+              apt:
+                  packages:
+                      - mysql-server-5.6
+                      - mysql-client-core-5.6
+                      - mysql-client-5.6    
+        - jdk: oraclejdk8
+          env: PROFILE="-Ddbenv=MYSQL -Dmariadb10.1"
+          addons:
+              mariadb: 10.1
+script:
+    - TERM=dumb ./gradlew build jacocoTestReport $PROFILE
+after_success:
+    ./gradlew coveralls
+
 env:
   global:
-   - secure: "HQgxa3QJauTgvNPLf9DXEAgbzHZEbiGal+r7cRPrC/6hVp02DP65HSy87nG0T1IhGe86BzqsZI2qbUuJlOeNrWABZGg9qNJjnkTkYnQm1ahtwy9J6USacDAnREKTcNwANRiLIDVLbufTwyHNTwAUI0hR0XFG7MFlB1Sh4QKh560="
+   - secure: "LnV8MYnRPVIpDtfCQmld33c6fk0AgBI+dmpuWOs1Mlo4Hx82OmMS9zONJnQ1CaGUALrET6xuLBfROr7TBPd+tjqxzWzm0fic+mZa8CQZMhMkb60QjoOF1P4xcpIq+UJ+bx/43eETdGK5v8PU4c6S7NE2yTActbaHt3vqBF/fY1M="
 
 addons:
   coverity_scan:
     project:
       name: "exteso/alf.io"
-      description: "The open source ticket reservation system"
-    notification_email: celestino@exteso.com
-    build_command_prepend: "gradle clean"
-    build_command:   "gradle classes testClasses"
+      description: "Alf.io, the open source ticket reservation system"
+    #notification_email:
+    build_command_prepend: ""
+    build_command:   "./gradlew build -x test"
     branch_pattern: coverity_scan
