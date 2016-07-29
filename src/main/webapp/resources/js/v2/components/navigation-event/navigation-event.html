@@ -1,0 +1,19 @@
+<div ng-if="$ctrl.isInternal" flex layout="row">
+    <md-sidenav
+        class="md-sidenav-left"
+        md-component-id="left"
+        md-is-locked-open="$mdMedia('gt-sm')"
+        md-disable-backdrop>
+        <ul>
+            <li><a ui-sref="event.detail({eventName: $ctrl.eventShortName})">Event info</a>
+            <li><a ui-sref="event.ticketsCategories({eventName: $ctrl.eventShortName})">Tickets and Categories</a>
+            <li><a ui-sref="event.promoCodes({eventName: $ctrl.eventShortName})">Promo codes</a>
+            <li><a ui-sref="event.additionalFields({eventName: $ctrl.eventShortName})">Additional fields</a>
+            <li><a ui-sref="event.donationHandling({eventName: $ctrl.eventShortName})">Donations handling</a>
+            <li>Waiting queue</li>
+            <li>Pending reservations</li>
+            <li>Email log</li>
+            <li>Plugin log</li>
+        </ul>
+    </md-sidenav>
+</div>

@@ -1,0 +1,38 @@
+<h2>Promo codes</h2>
+<p>Manage/Handle the promo codes.</p>
+
+
+
+<table>
+    <thead>
+    <tr>
+        <th>Code</th>
+        <th><abbr title="Usage count">count</abbr></th>
+        <th>Start</th>
+        <th>End</th>
+        <th>Type</th>
+        <th>Amount</th>
+        <th>Categories</th>
+        <th>Actions</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr ng-repeat="promocode in $ctrl.promocodes" ng-class="{'category-success': !promocode.expired, 'category-expired': promocode.expired}">
+        <td>{{::promocode.promoCode}} <span ng-if="promocode.expired">(Expired)</span></td>
+        <td>{{promocode.useCount}}</td>
+        <td>{{::promocode.formattedStart | formatDate}}</td>
+        <td>{{::promocode.formattedEnd | formatDate}}</td>
+        <td>{{::promocode.discountType}}</td>
+        <td>
+            <span ng-if="promocode.discountType === 'PERCENTAGE'">{{::promocode.discountAmount}}%</span>
+            <span ng-if="promocode.discountType === 'FIXED_AMOUNT'">{{::promocode.formattedDiscountAmount | currency : (event.currency || "")}}</span>
+        </td>
+        <td><div ng-if="promocode.categories.length > 0"><p ng-repeat="categoryId in promocode.categories">{{::ticketCategoriesById[categoryId].name}}</p></div><div class="text-muted" ng-if="promocode.categories.length == 0 || promocode.categories == null">Apply to all</div></td>
+        <td>
+            <button class="btn btn-xs btn-warning" ng-click="changeDate(promocode)"><i class="fa fa-calendar"></i> Change date</button>
+            <button ng-hide="promocode.expired" class="btn btn-xs btn-default" ng-click="disablePromocode(promocode)"><i class="fa fa-remove"></i> Disable</button>
+            <button ng-show="promocode.useCount === 0" class="btn btn-xs btn-danger" ng-click="deletePromocode(promocode)"><i class="fa fa-trash"></i> Delete</button>
+        </td>
+    </tr>
+    </tbody>
+</table>

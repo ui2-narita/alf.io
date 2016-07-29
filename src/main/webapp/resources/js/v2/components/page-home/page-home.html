@@ -1,0 +1,16 @@
+<h2>Organizations</h2>
+<ul>
+    <li ng-repeat="organization in $ctrl.organizations">{{organization.name}}</li>
+</ul>
+
+<h2>Users</h2>
+<ul>
+    <li ng-repeat="user in $ctrl.users">{{user.username}}</li>
+</ul>
+
+<h2>Events</h2>
+<md-button class="md-primary md-raised" ui-sref="newEvent">Create new event</md-button>
+<md-button class="md-primary md-raised" ui-sref="newExternalEvent">Create a link to an external event</md-button>
+<ul>
+    <li ng-repeat="event in $ctrl.events"><a ui-sref="event.detail({eventName: event.shortName})">{{event.displayName}}</a>
+</ul>

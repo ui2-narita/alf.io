@@ -1,0 +1,15 @@
+<h3>Donation options</h3>
+<span>here you can add one or more "donation" option.</span>
+
+
+<div ng-repeat="item in $ctrl.additionalServices">
+    <md-card>
+        <md-card-content>
+            <p><span>{{item.inception.date | date:'MMM d, yyyy'}} {{item.inception.time | date:'HH:mm'}}</span> - <span>{{item.expiration.date | date:'MMM d, yyyy'}} {{item.expiration.time | date:'HH:mm'}}</span></p>
+            <p>
+                <span ng-if="!item.fixPrice">User-defined</span>
+                <span ng-if="item.fixPrice">{{item.price}} {{asCtrl.currency}}</span>
+            </p>
+        </md-card-content>
+    </md-card>
+</div>

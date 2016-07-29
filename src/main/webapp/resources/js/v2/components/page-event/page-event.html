@@ -1,0 +1,53 @@
+<h2>{{$ctrl.event.event.displayName}}</h2>
+<h3>Location and Date</h3>
+<table ng-if="$ctrl.event">
+    <tr>
+        <th>Organized by</th>
+        <td>{{$ctrl.organization.name}} &lt;{{$ctrl.organization.email}}&gt;</td>
+    </tr>
+    <tr>
+        <th>Website URL</th>
+        <td><a ng-href="{{$ctrl.event.websiteUrl}}" target="_blank">{{$ctrl.event.websiteUrl}}</a></td>
+    </tr>
+    <tr ng-if="!$ctrl.isInternal($ctrl.event)">
+        <th>External URL</th>
+        <td><a ng-href="{{$ctrl.event.externalUrl}}" target="_blank">{{$ctrl.event.externalUrl}}</a></td>
+    </tr>
+    <tr ng-if="$ctrl.isInternal($ctrl.event)">
+        <th>Terms and conditions URL</th>
+        <td><a ng-href="{{$ctrl.event.termsAndConditionsUrl}}" target="_blank">{{$ctrl.event.termsAndConditionsUrl}}</a></td>
+    </tr>
+    <tr ng-if="$ctrl.event.fileBlobIdIsPresent">
+        <th>Event image</th>
+        <td><img ng-src="/file/{{$ctrl.event.fileBlobId}}"></td>
+    </tr>
+    <tr ng-if="!$ctrl.event.fileBlobIdIsPresent">
+        <th>Image URL</th>
+        <td><a ng-href="{{$ctrl.event.imageUrl}}" target="_blank">{{$ctrl.event.imageUrl}}</a></td>
+    </tr>
+    <tr>
+        <th>Location</th>
+        <td>{{$ctrl.event.location}}</td>
+    </tr>
+    <tr ng-if="$ctrl.isInternal($ctrl.event)">
+        <th>Languages</th>
+        <td><span ng-repeat="cl in $ctrl.event.contentLanguages">{{cl.displayLanguage}}<span ng-if="!$last">, </span></span></td>
+    </tr>
+    <tr ng-if="$ctrl.isInternal($ctrl.event)" ng-repeat="cl in $ctrl.event.contentLanguages">
+        <th>Description ({{cl.displayLanguage}})</th>
+        <td><pre>{{$ctrl.event.description[cl.locale]}}</pre></td>
+    </tr>
+    <tr>
+        <th>Start Date/Time</th>
+        <td>{{$ctrl.event.formattedBegin | formatDate}}</td>
+    </tr>
+    <tr>
+        <th>End Date/Time</th>
+        <td>{{$ctrl.event.formattedEnd | formatDate}}</td>
+    </tr>
+    <tr>
+        <th>Time Zone</th>
+        <td>{{$ctrl.event.timeZone}}</td>
+    </tr>
+
+</table>

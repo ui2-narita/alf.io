@@ -44,4 +44,13 @@ public class AdminController {
         model.addAttribute("basicConfigurationNeeded", configurationManager.isBasicConfigurationNeeded());
         return "/admin/index";
     }
+
+
+    @RequestMapping("v2")
+    public String admin2Home(Model model, @Value("${alfio.version}") String version, Principal principal) {
+        model.addAttribute("alfioVersion", version);
+        model.addAttribute("username", principal.getName());
+        model.addAttribute("basicConfigurationNeeded", configurationManager.isBasicConfigurationNeeded());
+        return "/admin/index2";
+    }
 }

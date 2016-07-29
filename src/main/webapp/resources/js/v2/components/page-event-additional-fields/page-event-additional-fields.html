@@ -1,0 +1,6 @@
+<h3>Additional Fields</h3>
+<p>Here are the additional fields defined</p>
+
+<div ng-repeat="field in $ctrl.additionalFields | orderBy: 'order' ">
+    {{field.name}} - {{field.order}} - {{field.type}}
+</div>
