@@ -20,7 +20,7 @@ var EVENT_SHORT_NAME_RESOLVER = {
 
 function eventViews(component) {
     return {
-        event: { component: component},
+        event: { template: '<'+component+' event-short-name="::$resolve.eventShortName" event-and-organization="::$resolve.eventAndOrganization" flex></'+component+'</>'}, //component is not able to add a custom attributes ???
         sidenav: {template: '<navigation-event event-short-name="::$resolve.eventShortName" event-and-organization="::$resolve.eventAndOrganization" flex layout="row"></navigation-event>'}
     };
 }
@@ -48,27 +48,27 @@ module.config(function($stateProvider, $urlRouterProvider) {
         .state('event.detail', {
             url: '',
             resolve: EVENT_SHORT_NAME_RESOLVER,
-            views: eventViews('pageEvent')
+            views: eventViews('page-event')
         })
         .state('event.ticketsCategories', {
             url: 'tickets-categories/',
             resolve: EVENT_SHORT_NAME_RESOLVER,
-            views: eventViews('pageEventTicketsCategories')
+            views: eventViews('page-event-tickets-categories')
         })
         .state('event.promoCodes', {
             url: 'promo-codes/',
             resolve: EVENT_SHORT_NAME_RESOLVER,
-            views: eventViews('pageEventPromoCodes')
+            views: eventViews('page-event-promo-codes')
         })
         .state('event.additionalFields', {
             url: 'additional-fields/',
             resolve: EVENT_SHORT_NAME_RESOLVER,
-            views: eventViews('pageEventAdditionalFields')
+            views: eventViews('page-event-additional-fields')
         })
         .state('event.donationHandling', {
             url: 'donation-handling/',
             resolve: EVENT_SHORT_NAME_RESOLVER,
-            views: eventViews('pageEventDonationHandling')
+            views: eventViews('page-event-donation-handling')
         });
     $urlRouterProvider.otherwise("/");
 });
