@@ -74,6 +74,11 @@ module.config(function($stateProvider, $urlRouterProvider) {
             url: 'email-log/',
             resolve: EVENT_SHORT_NAME_RESOLVER,
             views: eventViews('page-event-email-log')
+        })
+        .state('event.pluginLog', {
+            url: 'plugin-log/',
+            resolve: EVENT_SHORT_NAME_RESOLVER,
+            views: eventViews('page-event-plugin-log')
         });
     $urlRouterProvider.otherwise("/");
 });

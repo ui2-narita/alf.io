@@ -44,6 +44,7 @@
         <script src="{{request.contextPath}}/resources/js/v2/components/page-new-event/page-new-event.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/components/page-new-external-event/page-new-external-event.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/components/page-event-email-log/page-event-email-log.js"></script>
+        <script src="{{request.contextPath}}/resources/js/v2/components/page-event-plugin-log/page-event-plugin-log.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/components/page-event/page-event.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/components/page-event-additional-fields/page-event-additional-fields.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/components/page-event-donation-handling/page-event-donation-handling.js"></script>
@@ -55,6 +56,7 @@
         <!-- services -->
         <script src="{{request.contextPath}}/resources/js/v2/services/event.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/services/email.js"></script>
+        <script src="{{request.contextPath}}/resources/js/v2/services/plugin.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/services/user.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/services/organization.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/services/price-calculator.js"></script>

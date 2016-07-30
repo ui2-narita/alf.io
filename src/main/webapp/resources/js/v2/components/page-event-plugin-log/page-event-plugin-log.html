@@ -1,0 +1,19 @@
+<h2>Plugin Log</h2>
+<p>Here you can monitor the activity of the active plugins</p>
+
+<table>
+    <thead>
+        <th>Plugin ID</th>
+        <th>Message</th>
+        <th>Message type</th>
+        <th>Timestamp</th>
+    </thead>
+    <tbody>
+        <tr ng-repeat="entry in $ctrl.logEntries">
+            <td>{{entry.pluginId}}</td>
+            <td>{{entry.description}}</td>
+            <td>{{entry.type}}</td>
+            <td>{{entry.timestamp | formatDate}}</td>
+        </tr>
+    </tbody>
+</table>
