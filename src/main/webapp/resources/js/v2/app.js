@@ -69,6 +69,11 @@ module.config(function($stateProvider, $urlRouterProvider) {
             url: 'donation-handling/',
             resolve: EVENT_SHORT_NAME_RESOLVER,
             views: eventViews('page-event-donation-handling')
+        })
+        .state('event.emailLog', {
+            url: 'email-log/',
+            resolve: EVENT_SHORT_NAME_RESOLVER,
+            views: eventViews('page-event-email-log')
         });
     $urlRouterProvider.otherwise("/");
 });

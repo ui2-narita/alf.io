@@ -43,20 +43,18 @@
         <script src="{{request.contextPath}}/resources/js/v2/components/page-home/page-home.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/components/page-new-event/page-new-event.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/components/page-new-external-event/page-new-external-event.js"></script>
-
+        <script src="{{request.contextPath}}/resources/js/v2/components/page-event-email-log/page-event-email-log.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/components/page-event/page-event.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/components/page-event-additional-fields/page-event-additional-fields.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/components/page-event-donation-handling/page-event-donation-handling.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/components/page-event-promo-codes/page-event-promo-codes.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/components/page-event-tickets-categories/page-event-tickets-categories.js"></script>
-
         <script src="{{request.contextPath}}/resources/js/v2/components/ticket-status/ticket-status.js"></script>
-
-
         <script src="{{request.contextPath}}/resources/js/v2/components/navigation-event/navigation-event.js"></script>
 
         <!-- services -->
         <script src="{{request.contextPath}}/resources/js/v2/services/event.js"></script>
+        <script src="{{request.contextPath}}/resources/js/v2/services/email.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/services/user.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/services/organization.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/services/price-calculator.js"></script>
@@ -66,6 +64,7 @@
 
         <!-- filters -->
         <script src="{{request.contextPath}}/resources/js/v2/filters/format-date.js"></script>
+        <script src="{{request.contextPath}}/resources/js/v2/filters/truncate-string.js"></script>
 
     </head>
     <body layout="column">
