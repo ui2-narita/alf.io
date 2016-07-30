@@ -58,9 +58,9 @@
                         <th>End sale date</th>
                         <td>{{::ticketCategory.formattedExpiration | formatDate}}</td>
                     </tr>
-                    <tr>
+                    <tr ng-if="!$ctrl.event.freeOfCharge">
                         <th>Final price</th>
-                        <td></td>
+                        <td>{{::ticketCategory.actualPrice | currency : ($ctrl.event.currency || "")}}</td>
                     </tr>
                 </tbody>
             </table>
