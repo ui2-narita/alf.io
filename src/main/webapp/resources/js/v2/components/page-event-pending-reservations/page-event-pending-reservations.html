@@ -1,0 +1,76 @@
+<h2>Pending Reservations</h2>
+<p>You can update them either one at a time or in bulk</p>
+
+
+<div ng-if="$ctrl.pendingReservations.length == 0">
+    <h3>No pending reservations found</h3>
+</div>
+
+<div ng-if="$ctrl.pendingReservations.length > 0">
+
+    <h3>Manual confirmation</h3>
+    <p>Review and confirm each transaction</p>
+
+    <table>
+        <thead>
+            <th>ID</th>
+            <th>Expiration Date</th>
+            <th>Amount</th>
+            <th>Customer's name</th>
+            <th>Customer's email</th>
+            <th></th>
+        </thead>
+        <tbody>
+            <tr ng-repeat="reservation in $ctrl.pendingReservations">
+                <td>{{::reservation.left.id}}</td>
+                <td>{{::reservation.left.validity | formatDate}}</td>
+                <td>{{::reservation.right.totalPrice}}</td>
+                <td>{{::reservation.left.fullName}}</td>
+                <td>{{::reservation.left.email}}</td>
+                <td>
+                    <button ng-click="$ctrl.registerPayment(eventName, reservation.left.id)">confirm</button>
+                    <button ng-click="$ctrl.deletePayment(eventName, reservation.left.id)">delete</button>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+
+
+    <h3>Bulk confirmation</h3>
+    <p>Upload CSV file(s) with received payments</p>
+
+
+    <h4>File Specifications:</h4>
+    <h5>General</h5>
+    <span>Please create a CSV file without header, using commas (<strong>,</strong>) as separator, double quotes (<strong>"</strong>)as quote character and backslash (<strong>\</strong>) as escaping character</span>
+    <h5>Row specification</h5>
+    <pre>
+    <span>abcd-efghi-jklm</span><strong>,</strong><span>10.00</span>
+
+    where:
+
+    <span>abcd-efghi-jklm</span> is the partial or full reservation code
+    <span>10.00</span> is the amount of the payment</pre>
+
+
+    <div ng-if="$ctrl.results && $ctrl.results.length > 0">
+        <h4>Upload results:</h4>
+        <table>
+            <thead>
+                <th>Row #</th>
+                <th>Status</th>
+                <th>Reservation ID</th>
+                <th>Error message</th>
+            </thead>
+            <tbody>
+                <tr ng-repeat="result in $ctrl.results">
+                    <td>{{$index + 1}}</td>
+                    <td>{{result.left}}</td>
+                    <td>{{result.middle}}</td>
+                    <td>{{result.right}}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>

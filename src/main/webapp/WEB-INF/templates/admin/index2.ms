@@ -51,6 +51,7 @@
         <script src="{{request.contextPath}}/resources/js/v2/components/page-event-promo-codes/page-event-promo-codes.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/components/page-event-tickets-categories/page-event-tickets-categories.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/components/page-event-waiting-queue/page-event-waiting-queue.js"></script>
+        <script src="{{request.contextPath}}/resources/js/v2/components/page-event-pending-reservations/page-event-pending-reservations.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/components/ticket-status/ticket-status.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/components/navigation-event/navigation-event.js"></script>
 
