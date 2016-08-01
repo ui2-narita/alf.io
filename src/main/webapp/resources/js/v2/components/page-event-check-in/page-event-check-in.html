@@ -1,0 +1,74 @@
+<h2>Check-In</h2>
+
+
+<h3>Scan the ticket for event eventname</h3>
+TODO
+
+
+<h3>Tickets to be checked in</h3>
+<table>
+    <thead>
+        <th>Status</th>
+        <th>Holder's name</th>
+        <th>Holder's e-mail</th>
+        <th>Type</th>
+        <th>Reference Number</th>
+        <th>Customer's name</th>
+        <th>Customer's e-mail</th>
+        <th>Order identifier</th>
+        <th>Payment Type</th>
+        <th>Transaction id</th>
+        <th>Transaction timestamp</th>
+        <th>Manual Check-In</th>
+    </thead>
+    <tbody>
+        <tr data-ng-repeat="ticket in $ctrl.tickets | filter: $ctrl.toBeCheckedIn | orderBy: ['timestamp', 'ticketReservationId' , 'uuid'] as filterResult">
+            <td>{{::ticket.status | statusText}}</td>
+            <td>{{::ticket.fullName}}</td>
+            <td>{{::ticket.email}}</td>
+            <td>{{::ticket.ticketCategory.name}}</td>
+            <td><a ng-href="/event/{{::$ctrl.eventShortName}}/reservation/{{::ticket.ticketsReservationId}}/{{::ticket.uuid}}">{{::ticket.uuid}}</a></td>
+            <td>{{::ticket.ticketReservation.fullName}}</td>
+            <td>{{::ticket.ticketReservation.email}}</td>
+            <td>{{::ticket.ticketsReservationId}}</td>
+            <td>{{::ticket.ticketReservation.paymentMethod}}</td>
+            <td><span data-ng-if="ticket.paid">{{::ticket.transaction.id}}</span></td>
+            <td><span data-ng-if="ticket.paid">{{::ticket.transactionTimestamp | formatDate:'DD.MM.YYYY HH:mm:ss'}}</span></td>
+            <td><button type="button" data-ng-click="$ctrl.manualCheckIn(ticket)">Check-In</button></td>
+        </tr>
+    </tbody>
+</table>
+
+
+
+<h3>Checked in tickets</h3>
+<table>
+    <thead>
+        <th>Status</th>
+        <th>Holder's name</th>
+        <th>Holder's e-mail</th>
+        <th>Type</th>
+        <th>Reference Number</th>
+        <th>Customer's name</th>
+        <th>Customer's e-mail</th>
+        <th>Order identifier</th>
+        <th>Payment Type</th>
+        <th>Transaction id</th>
+        <th>Transaction timestamp</th>
+    </thead>
+    <tbody>
+        <tr ng-repeat="ticket in $ctrl.tickets | filter: {status: 'CHECKED_IN'} | orderBy: ['timestamp', 'ticketReservationId' , 'uuid']">
+            <td>{{::ticket.status | statusText}}</td>
+            <td>{{::ticket.fullName}}</td>
+            <td>{{::ticket.email}}</td>
+            <td>{{::ticket.ticketCategory.name}}</td>
+            <td><a ng-href="/event/{{::$ctrl.eventShortName}}/reservation/{{::ticket.ticketsReservationId}}/{{::ticket.uuid}}">{{::ticket.uuid}}</a></td>
+            <td>{{::ticket.ticketReservation.fullName}}</td>
+            <td>{{::ticket.ticketReservation.email}}</td>
+            <td>{{::ticket.ticketsReservationId}}</td>
+            <td>{{::ticket.ticketReservation.paymentMethod}}</td>
+            <td><span ng-if="ticket.paid">{{::ticket.transaction.id}}</span></td>
+            <td><span ng-if="ticket.paid">{{::ticket.transactionTimestamp | formatDate:'DD.MM.YYYY HH:mm:ss'}}</span></td>
+        </tr>
+    </tbody>
+</table>

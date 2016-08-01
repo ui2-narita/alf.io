@@ -89,6 +89,11 @@ module.config(function($stateProvider, $urlRouterProvider) {
             url: 'pending-reservations/',
             resolve: EVENT_SHORT_NAME_RESOLVER,
             views: eventViews('page-event-pending-reservations')
+        })
+        .state('event.checkIn', {
+            url: 'check-in/',
+            resolve: EVENT_SHORT_NAME_RESOLVER,
+            views: eventViews('page-event-check-in')
         });
     $urlRouterProvider.otherwise("/");
 });
