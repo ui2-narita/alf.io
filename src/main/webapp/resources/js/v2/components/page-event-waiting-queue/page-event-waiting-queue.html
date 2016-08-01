@@ -1,0 +1,23 @@
+<h2>Waiting queue</h2>
+<p>View waiting people</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Type</th>
+            <th>Name</th>
+            <th>e-mail</th>
+            <th>language</th>
+            <th>status</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr ng-repeat="subscription in $ctrl.subscriptions">
+            <td ng-bind="::subscription.subscriptionType"></td>
+            <td ng-bind="::subscription.fullName"></td>
+            <td ng-bind="::subscription.emailAddress"></td>
+            <td ng-bind="::subscription.locale"></td>
+            <td ng-bind="::subscription.status"></td>
+        </tr>
+    </tbody>
+</table>

@@ -50,6 +50,7 @@
         <script src="{{request.contextPath}}/resources/js/v2/components/page-event-donation-handling/page-event-donation-handling.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/components/page-event-promo-codes/page-event-promo-codes.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/components/page-event-tickets-categories/page-event-tickets-categories.js"></script>
+        <script src="{{request.contextPath}}/resources/js/v2/components/page-event-waiting-queue/page-event-waiting-queue.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/components/ticket-status/ticket-status.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/components/navigation-event/navigation-event.js"></script>
 
@@ -62,6 +63,7 @@
         <script src="{{request.contextPath}}/resources/js/v2/services/price-calculator.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/services/promo-code.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/services/additional-service.js"></script>
+        <script src="{{request.contextPath}}/resources/js/v2/services/waiting-queue.js"></script>
         <script src="{{request.contextPath}}/resources/js/v2/services/http-error-handler.js"></script>
 
         <!-- filters -->

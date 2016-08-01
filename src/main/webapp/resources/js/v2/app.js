@@ -79,6 +79,11 @@ module.config(function($stateProvider, $urlRouterProvider) {
             url: 'plugin-log/',
             resolve: EVENT_SHORT_NAME_RESOLVER,
             views: eventViews('page-event-plugin-log')
+        })
+        .state('event.waitingQueue', {
+            url: 'waiting-queue/',
+            resolve: EVENT_SHORT_NAME_RESOLVER,
+            views: eventViews('page-event-waiting-queue')
         });
     $urlRouterProvider.otherwise("/");
 });
