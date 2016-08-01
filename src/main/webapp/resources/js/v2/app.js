@@ -21,7 +21,8 @@ var EVENT_SHORT_NAME_RESOLVER = {
 function eventViews(component) {
     return {
         event: { template: '<'+component+' event-short-name="::$resolve.eventShortName" event-and-organization="::$resolve.eventAndOrganization" flex></'+component+'</>'}, //component is not able to add a custom attributes ???
-        sidenav: {template: '<navigation-event event-short-name="::$resolve.eventShortName" event-and-organization="::$resolve.eventAndOrganization" flex layout="row"></navigation-event>'}
+        sidenav: {template: '<navigation-event event-short-name="::$resolve.eventShortName" event-and-organization="::$resolve.eventAndOrganization" flex layout="row"></navigation-event>'},
+        'title@': {template: ' > {{::$resolve.eventShortName}} > ' + component}
     };
 }
 
@@ -30,15 +31,15 @@ module.config(function($stateProvider, $urlRouterProvider) {
     $stateProvider
         .state('index', {
             url: '/',
-            views: {main: {component: 'pageHome'}}
+            views: {main: {component: 'pageHome', 'title@': {template: ''}}}
         })
         .state('newEvent', {
             url: '/new-event',
-            views: {main: {component: 'pageNewEvent'}}
+            views: {main: {component: 'pageNewEvent'}, 'title@': {template: ''}}
         })
         .state('newExternalEvent', {
             url: '/new-external-event',
-            views: {main: {component: 'pageNewExternalEvent'}}
+            views: {main: {component: 'pageNewExternalEvent'}, 'title@': {template: ''}}
         })
         .state('event', {
             abstract: 'true',

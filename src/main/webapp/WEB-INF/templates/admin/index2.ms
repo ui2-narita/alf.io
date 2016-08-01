@@ -78,7 +78,10 @@
     <body layout="column">
         <md-toolbar>
             <div class="md-toolbar-tools">
-                <h2><a class="navbar-brand logo title" ui-sref="index">Alf.io</a></h2>
+                <h2>
+                    <a class="navbar-brand logo title" ui-sref="index">Alf.io</a>
+                    <span ui-view="title"></span>
+                </h2>
             </div>
         </md-toolbar>
         <div role="main" ui-view="main" flex layout="row"></div>
