@@ -1,4 +1,5 @@
 language: java
+dist: trusty
 env:
   global:
    - secure: "HQgxa3QJauTgvNPLf9DXEAgbzHZEbiGal+r7cRPrC/6hVp02DP65HSy87nG0T1IhGe86BzqsZI2qbUuJlOeNrWABZGg9qNJjnkTkYnQm1ahtwy9J6USacDAnREKTcNwANRiLIDVLbufTwyHNTwAUI0hR0XFG7MFlB1Sh4QKh560="
