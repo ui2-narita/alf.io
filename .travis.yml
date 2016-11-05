@@ -14,5 +14,5 @@ addons:
       description: "The open source ticket reservation system"
     notification_email: celestino@exteso.com
     build_command_prepend: "gradle clean"
-    build_command:   "gradle classes testClasses"
+    build_command:   "gradle build -x test"
     branch_pattern: coverity_scan
