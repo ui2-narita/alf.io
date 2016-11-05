@@ -1,8 +1,4 @@
 language: java
-dist: trusty
-sudo: required
-install:
-    - TERM=dumb ./gradlew -q assemble
 env:
   global:
    - secure: "HQgxa3QJauTgvNPLf9DXEAgbzHZEbiGal+r7cRPrC/6hVp02DP65HSy87nG0T1IhGe86BzqsZI2qbUuJlOeNrWABZGg9qNJjnkTkYnQm1ahtwy9J6USacDAnREKTcNwANRiLIDVLbufTwyHNTwAUI0hR0XFG7MFlB1Sh4QKh560="
@@ -13,6 +9,6 @@ addons:
       name: "exteso/alf.io"
       description: "The open source ticket reservation system"
     notification_email: celestino@exteso.com
-    build_command_prepend: "gradle clean"
-    build_command:   "gradle build -x test"
+    build_command_prepend: gradle clean
+    build_command:   gradle build -x test
     branch_pattern: coverity_scan
