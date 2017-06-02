@@ -284,7 +284,7 @@ public class DataMigrator {
                 });
             })
             .map(p -> {
-                PriceContainer priceContainer = p.getValue();
+                PriceContainer priceContainer = (PriceContainer) p.getValue();
                 return Pair.of("additional_service_item", new MapSqlParameterSource(srcPriceCtsParam, priceContainer.getSrcPriceCts())
                     .addValue("finalPriceCts", MonetaryUtil.unitToCents(priceContainer.getFinalPrice()))
                     .addValue("vatCts", MonetaryUtil.unitToCents(priceContainer.getVAT()))
@@ -337,7 +337,7 @@ public class DataMigrator {
                 });
             })
             .map(p -> {
-                    PriceContainer priceContainer = p.getValue();
+                    PriceContainer priceContainer = (PriceContainer) p.getValue();
                     return Pair.of("ticket", new MapSqlParameterSource(srcPriceCtsParam, priceContainer.getSrcPriceCts())
                         .addValue("finalPriceCts", MonetaryUtil.unitToCents(priceContainer.getFinalPrice()))
                         .addValue("vatCts", MonetaryUtil.unitToCents(priceContainer.getVAT()))

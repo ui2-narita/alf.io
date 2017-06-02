@@ -32,8 +32,9 @@ public class ContentLanguage {
     public static final ContentLanguage ENGLISH = new ContentLanguage(Locale.ENGLISH, ENGLISH_IDENTIFIER, Locale.ENGLISH);
     private static final ContentLanguage GERMAN = new ContentLanguage(Locale.GERMAN,   0b0100, Locale.GERMAN);
     private static final ContentLanguage DUTCH = new ContentLanguage(new Locale("nl"), 0b1000, new Locale("nl"));
+    private static final ContentLanguage JAPANESE = new ContentLanguage(Locale.JAPANESE, 0b1010, Locale.JAPAN);
 
-    public static final List<ContentLanguage> ALL_LANGUAGES = Arrays.asList(ITALIAN, ENGLISH, GERMAN, DUTCH);
+    public static final List<ContentLanguage> ALL_LANGUAGES = Arrays.asList(ITALIAN, ENGLISH, GERMAN, DUTCH, JAPANESE);
 
     public static List<ContentLanguage> findAllFor(int bitMask) {
         return ALL_LANGUAGES.stream()
