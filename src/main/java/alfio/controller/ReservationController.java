@@ -170,13 +170,15 @@ public class ReservationController {
                     Map<String, Object> modelMap = model.asMap();
                     modelMap.putIfAbsent("paymentForm", PaymentForm.fromExistingReservation(reservation));
                     modelMap.putIfAbsent("hasErrors", false);
+
+                    boolean hasPaidSupplement = ticketReservationManager.hasPaidSupplements(reservationId);
                     model.addAttribute(
                         "ticketsByCategory",
                         ticketsInReservation.stream().collect(Collectors.groupingBy(Ticket::getCategoryId)).entrySet().stream()
                             .map((e) -> {
                                 TicketCategory category = eventManager.getTicketCategoryById(e.getKey(), event.getId());
                                 List<TicketDecorator> decorators = TicketDecorator.decorate(e.getValue(),
-                                    configurationManager.getBooleanConfigValue(Configuration.from(event.getOrganizationId(), event.getId(), category.getId(), ALLOW_FREE_TICKETS_CANCELLATION), false),
+                                    !hasPaidSupplement && configurationManager.getBooleanConfigValue(Configuration.from(event.getOrganizationId(), event.getId(), category.getId(), ALLOW_FREE_TICKETS_CANCELLATION), false),
                                     eventManager.checkTicketCancellationPrerequisites(),
                                     ticket -> ticketHelper.findTicketFieldConfigurationAndValue(event.getId(), ticket, locale),
                                     true, (t) -> "tickets['"+t.getUuid()+"'].");
@@ -213,14 +215,14 @@ public class ReservationController {
                         .stream()
                         .map(t -> Triple.of(t.getLeft(), t.getMiddle().stream().filter(d -> d.getLocale().equals(locale.getLanguage())).collect(toList()), t.getRight()))
                         .collect(Collectors.toList());
-
+                    boolean hasPaidSupplement = ticketReservationManager.hasPaidSupplements(reservationId);
                     model.addAttribute(
                         "ticketsByCategory",
                         tickets.stream().collect(Collectors.groupingBy(Ticket::getCategoryId)).entrySet().stream()
                             .map((e) -> {
                                 TicketCategory category = eventManager.getTicketCategoryById(e.getKey(), ev.getId());
                                 List<TicketDecorator> decorators = TicketDecorator.decorate(e.getValue(),
-                                    configurationManager.getBooleanConfigValue(Configuration.from(ev.getOrganizationId(), ev.getId(), category.getId(), ALLOW_FREE_TICKETS_CANCELLATION), false),
+                                    !hasPaidSupplement && configurationManager.getBooleanConfigValue(Configuration.from(ev.getOrganizationId(), ev.getId(), category.getId(), ALLOW_FREE_TICKETS_CANCELLATION), false),
                                     eventManager.checkTicketCancellationPrerequisites(),
                                     ticket -> ticketHelper.findTicketFieldConfigurationAndValue(ev.getId(), ticket, locale),
                                     tickets.size() == 1, TicketDecorator.EMPTY_PREFIX_GENERATOR);
@@ -342,6 +344,14 @@ public class ReservationController {
         return redirectReservation(reservation, eventName, reservationId);
     }
 
+    @RequestMapping(value = "/event/{eventName}/reservation/{reservationId}/waitingPayment", method = RequestMethod.GET)
+    public String showProcessingPayment(@PathVariable("eventName") String eventName,
+                                        @PathVariable("reservationId") String reservationId,
+                                        Model model, Locale locale) {
+
+        //FIXME
+        return "/event/reservation-processing-payment";
+    }
 
 
     private String redirectReservation(Optional<TicketReservation> ticketReservation, String eventName, String reservationId) {
@@ -358,6 +368,8 @@ public class ReservationController {
                 return baseUrl + "/success";
             case OFFLINE_PAYMENT:
                 return baseUrl + "/waitingPayment";
+            case EXTERNAL_PROCESSING_PAYMENT:
+                return baseUrl + "/processing-payment";
             case IN_PAYMENT:
             case STUCK:
                 return baseUrl + "/failure";
@@ -418,8 +430,22 @@ public class ReservationController {
                 return redirectReservation(ticketReservation, eventName, reservationId);
             }
         }
-        //
 
+        //handle mollie redirect
+        if(paymentForm.getPaymentMethod() == PaymentProxy.MOLLIE) {
+            OrderSummary orderSummary = ticketReservationManager.orderSummaryForReservationId(reservationId, event, locale);
+            try {
+                String checkoutUrl = paymentManager.createMollieCheckoutRequest(event, reservationId, orderSummary, customerName,
+                    paymentForm.getEmail(), paymentForm.getBillingAddress(), locale, paymentForm.isPostponeAssignment());
+                assignTickets(eventName, reservationId, paymentForm, bindingResult, request, true);
+                return "redirect:" + checkoutUrl;
+            } catch (Exception e) {
+                bindingResult.reject(ErrorsCode.STEP_2_PAYMENT_REQUEST_CREATION);
+                SessionUtil.addToFlash(bindingResult, redirectAttributes);
+                return redirectReservation(ticketReservation, eventName, reservationId);
+            }
+        }
+        //
 
         final PaymentResult status = ticketReservationManager.confirm(paymentForm.getToken(), paymentForm.getPaypalPayerID(), event, reservationId, paymentForm.getEmail(),
             customerName, locale, paymentForm.getBillingAddress(), reservationCost, SessionUtil.retrieveSpecialPriceSessionId(request),

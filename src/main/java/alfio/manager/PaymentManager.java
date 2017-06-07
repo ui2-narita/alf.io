@@ -50,6 +50,7 @@ public class PaymentManager {
 
     private final StripeManager stripeManager;
     private final PaypalManager paypalManager;
+    private final MollieManager mollieManager;
     private final TransactionRepository transactionRepository;
     private final ConfigurationManager configurationManager;
     private final AuditingRepository auditingRepository;
@@ -133,6 +134,10 @@ public class PaymentManager {
         return paypalManager.createCheckoutRequest(event, reservationId, orderSummary, customerName, email, billingAddress, locale, postponeAssignment);
     }
 
+    public String createMollieCheckoutRequest(Event event, String reservationId, OrderSummary orderSummary, CustomerName customerName, String email, String billingAddress, Locale locale, boolean postponeAssignment) throws Exception {
+        return mollieManager.createCheckoutRequest(event, reservationId, orderSummary, customerName, email, billingAddress, locale, postponeAssignment);
+    }
+
     public boolean refund(TicketReservation reservation, Event event, Optional<Integer> amount, String username) {
         Transaction transaction = transactionRepository.loadByReservationId(reservation.getId());
         boolean res = false;
@@ -181,9 +186,15 @@ public class PaymentManager {
         }
 
         private final PaymentProxy paymentProxy;
+
         private final PaymentMethodStatus status;
+
         public boolean isActive() {
             return status == PaymentMethodStatus.ACTIVE;
+        }
+
+        public Set<String> getOnlyForCurrency() {
+            return paymentProxy.getOnlyForCurrency();
         }
     }
 }
