@@ -5,6 +5,9 @@
 			body {
 				font-family:"NasuM";
 			}
+			pre {
+				font-family:"NasuM";
+			}
 			h1,h2,p {margin:0;}
 			h1 {
 				font-size:160%;

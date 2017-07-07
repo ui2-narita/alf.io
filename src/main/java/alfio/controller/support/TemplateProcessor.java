@@ -152,6 +152,7 @@ public final class TemplateProcessor {
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         String page = templateManager.renderTemplate(event, templateResource, model, language);
+        if(log.isDebugEnabled()) log.debug("html contents =  \n" + page);
         try {
             prepareItextRenderer(page).createPDF(baos);
             return Optional.of(baos.toByteArray());
