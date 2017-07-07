@@ -93,6 +93,10 @@ public class UserManager {
         return userRepository.findEnabledByUsername(username).orElseThrow(IllegalArgumentException::new);
     }
 
+    public boolean usernameExists(String username) {
+        return userRepository.findIdByUserName(username).isPresent();
+    }
+
     public User findUser(int id) {
         return userRepository.findById(id);
     }
@@ -151,10 +155,11 @@ public class UserManager {
     }
 
     @Transactional
-    public void createOrganization(String name, String description, String email) {
+    public int createOrganization(String name, String description, String email) {
         organizationRepository.create(name, description, email);
         int orgId = organizationRepository.findByName(name).stream().findFirst().orElseThrow(IllegalStateException::new).getId();
         invoiceSequencesRepository.initFor(orgId);
+        return orgId;
     }
 
     @Transactional
@@ -194,10 +199,15 @@ public class UserManager {
     }
 
     @Transactional
-    public UserWithPassword insertUser(int organizationId, String username, String firstName, String lastName, String emailAddress, Role role) {
-        Organization organization = organizationRepository.getById(organizationId);
+    public UserWithPassword insertUser(int organizationId, String username, String firstName, String lastName, String emailAddress, Role role, User.Type userType) {
         String userPassword = PasswordGenerator.generateRandomPassword();
-        AffectedRowCountAndKey<Integer> result = userRepository.create(username, passwordEncoder.encode(userPassword), firstName, lastName, emailAddress, true);
+        return insertUser(organizationId, username, firstName, lastName, emailAddress, role, userType, userPassword);
+    }
+
+    @Transactional
+    public UserWithPassword insertUser(int organizationId, String username, String firstName, String lastName, String emailAddress, Role role, User.Type userType, String userPassword) {
+        Organization organization = organizationRepository.getById(organizationId);
+        AffectedRowCountAndKey<Integer> result = userRepository.create(username, passwordEncoder.encode(userPassword), firstName, lastName, emailAddress, true, userType);
         userOrganizationRepository.create(result.getKey(), organization.getId());
         authorityRepository.create(username, role.getRoleName());
         return new UserWithPassword(userRepository.findById(result.getKey()), userPassword, UUID.randomUUID().toString());
@@ -274,4 +284,11 @@ public class UserManager {
     }
 
 
+    public List<Integer> disableAccountsOlderThan(Date date, User.Type type) {
+        List<Integer> userIds = userRepository.findUserToDisableOlderThan(date, type);
+        if(!userIds.isEmpty()) {
+            userRepository.disableAccountsOlderThan(date, type);
+        }
+        return userIds;
+    }
 }

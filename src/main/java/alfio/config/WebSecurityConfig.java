@@ -16,6 +16,10 @@
  */
 package alfio.config;
 
+import alfio.manager.RecaptchaService;
+import alfio.manager.user.UserManager;
+import alfio.model.user.Role;
+import alfio.model.user.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -29,13 +33,23 @@ import org.springframework.security.config.annotation.web.configuration.WebSecur
 import org.springframework.security.config.annotation.web.configurers.CsrfConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.NegatedRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestHeaderRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
+import org.springframework.web.filter.GenericFilterBean;
 
+import javax.servlet.FilterChain;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.sql.DataSource;
+import java.io.IOException;
 import java.util.regex.Pattern;
 
 @Configuration
@@ -103,6 +117,12 @@ public class WebSecurityConfig {
         @Autowired
         private Environment environment;
 
+        @Autowired
+        private UserManager userManager;
+
+        @Autowired
+        private RecaptchaService recaptchaService;
+
         @Bean
         public CsrfTokenRepository getCsrfTokenRepository() {
             HttpSessionCsrfTokenRepository repository = new HttpSessionCsrfTokenRepository();
@@ -148,8 +168,78 @@ public class WebSecurityConfig {
                 .loginProcessingUrl("/authenticate")
                 .failureUrl("/authentication?failed")
                 .and().logout().permitAll();
+
+
+            //
+
+            http.addFilterBefore(new RecaptchaLoginFilter(recaptchaService, "/authenticate", "/authentication?recaptchaFailed"), UsernamePasswordAuthenticationFilter.class);
+
+            if(environment.acceptsProfiles(Initializer.PROFILE_DEMO)) {
+                http.addFilterAfter(new UserCreatorBeforeLoginFilter(userManager, "/authenticate"), RecaptchaLoginFilter.class);
+            }
+        }
+
+
+        private static class RecaptchaLoginFilter extends GenericFilterBean {
+            private final RequestMatcher requestMatcher;
+            private final RecaptchaService recaptchaService;
+            private final String recaptchaFailureUrl;
+
+
+            RecaptchaLoginFilter(RecaptchaService recaptchaService, String loginProcessingUrl, String recaptchaFailureUrl) {
+                this.requestMatcher = new AntPathRequestMatcher(loginProcessingUrl, "POST");
+                this.recaptchaService = recaptchaService;
+                this.recaptchaFailureUrl = recaptchaFailureUrl;
+            }
+
+
+            @Override
+            public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
+                HttpServletRequest req = (HttpServletRequest) request;
+                HttpServletResponse res = (HttpServletResponse) response;
+
+                if(requestMatcher.matches(req) && !recaptchaService.checkRecaptcha(req)) {
+                    res.sendRedirect(recaptchaFailureUrl);
+                    return;
+                }
+
+                chain.doFilter(request, response);
+            }
+        }
+
+
+        // generate a user if it does not exists, to be used by the demo profile
+        private static class UserCreatorBeforeLoginFilter extends GenericFilterBean {
+
+            private final UserManager userManager;
+            private final RequestMatcher requestMatcher;
+
+            UserCreatorBeforeLoginFilter(UserManager userManager, String loginProcessingUrl) {
+                this.userManager = userManager;
+                this.requestMatcher = new AntPathRequestMatcher(loginProcessingUrl, "POST");
+            }
+
+
+
+            @Override
+            public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
+                HttpServletRequest req = (HttpServletRequest) request;
+
+                //ensure organization/user
+                if(requestMatcher.matches(req) && req.getParameter("username") != null && req.getParameter("password") != null) {
+                    String username = req.getParameter("username");
+                    if(!userManager.usernameExists(username)) {
+                        int orgId = userManager.createOrganization(username, "Demo organization", username);
+                        userManager.insertUser(orgId, username, "", "", username, Role.OWNER, User.Type.DEMO, req.getParameter("password"));
+                    }
+                }
+
+                chain.doFilter(request, response);
+            }
         }
     }
+
+
 
 
 
