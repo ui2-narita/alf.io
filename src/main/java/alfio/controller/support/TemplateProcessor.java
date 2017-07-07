@@ -108,7 +108,7 @@ public final class TemplateProcessor {
             log.warn("error while loading DejaVuSansMono.ttf font", e);
         }
 
-        String nasuMRegular20141215TTF  = "/alfio/font/NasuM-Regular-20141215.ttf";
+        String nasuMRegular20141215TTF  = "/alfio/font/NasuFont/NasuM-Regular-20141215.ttf";
         String nasuMRegular20141215Name = "NasuM";
         try (InputStream is = new ClassPathResource(nasuMRegular20141215TTF).getInputStream()) {
           renderer.getFontResolver().addFont(() -> is, nasuMRegular20141215Name, null, null, false);
