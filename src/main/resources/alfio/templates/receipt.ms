@@ -3,7 +3,7 @@
 	<head>
 		<style>
 			body {
-				font-family:"DejaVu Sans Mono";
+				font-family:"NasuM";
 			}
 			h1,h2,p {margin:0;}
 			h1 {

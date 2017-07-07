@@ -16,6 +16,22 @@
  */
 package alfio.controller.support;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.jsoup.Jsoup;
+import org.springframework.core.io.ClassPathResource;
+
+import com.openhtmltopdf.DOMBuilder;
+import com.openhtmltopdf.pdfboxout.PdfBoxRenderer;
+import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
+
 import alfio.manager.FileUploadManager;
 import alfio.manager.support.PDFTemplateGenerator;
 import alfio.manager.support.PartialTicketPDFGenerator;
@@ -28,20 +44,7 @@ import alfio.model.user.Organization;
 import alfio.util.LocaleUtil;
 import alfio.util.TemplateManager;
 import alfio.util.TemplateResource;
-import com.openhtmltopdf.DOMBuilder;
-import com.openhtmltopdf.pdfboxout.PdfBoxRenderer;
-import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 import lombok.extern.log4j.Log4j2;
-import org.jsoup.Jsoup;
-import org.springframework.core.io.ClassPathResource;
-
-import javax.servlet.http.HttpServletRequest;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
 
 @Log4j2
 public final class TemplateProcessor {
@@ -83,7 +86,7 @@ public final class TemplateProcessor {
                                                       TemplateManager templateManager,
                                                       FileUploadManager fileUploadManager,
                                                       String reservationID) {
-        
+
         return () -> {
             Optional<TemplateResource.ImageData> imageData = extractImageModel(event, fileUploadManager);
             Map<String, Object> model = TemplateResource.buildModelForTicketPDF(organization, event, ticketReservation, ticketCategory, ticket, imageData, reservationID);
@@ -104,6 +107,15 @@ public final class TemplateProcessor {
         } catch(IOException e) {
             log.warn("error while loading DejaVuSansMono.ttf font", e);
         }
+
+        String nasuMRegular20141215TTF  = "/alfio/font/NasuM-Regular-20141215.ttf";
+        String nasuMRegular20141215Name = "NasuM";
+        try (InputStream is = new ClassPathResource(nasuMRegular20141215TTF).getInputStream()) {
+          renderer.getFontResolver().addFont(() -> is, nasuMRegular20141215Name, null, null, false);
+        } catch(IOException e) {
+          log.warn("error while loading " + nasuMRegular20141215TTF + " font", e);
+        }
+
         renderer.layout();
         return renderer;
     }

@@ -2,20 +2,20 @@
 	<head>
 		<style>
 			body {
-				font-family:"DejaVu Sans Mono";
+				font-family:"NasuM";
 			}
 			h1,h2,p {margin:0;}
 			h1 {
 				font-size:160%;
 			}
-			
+
 			h2 {
 				font-size:120%;
 				font-weight:normal;
 				border-bottom:1px solid black;
 				margin-bottom:10px;
 			}
-			
+
 			table {
 				margin-bottom:30px;
 			}
@@ -69,7 +69,7 @@
                 <td style="width:200px;"><div style="text-align:right"><img src="{{qrCodeDataUri}}"/></div></td>
             </tr>
 		</table>
-		
+
 		<h2>{{#i18n}}ticket.ticket{{/i18n}}</h2>
 		<table>
 			<tr>
