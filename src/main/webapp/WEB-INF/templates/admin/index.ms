@@ -51,6 +51,7 @@
     <script src="{{request.contextPath}}/resources/js/admin/feature/event-statistic/event-statistic.js"></script>
 
     <script src="{{request.contextPath}}/resources/js/admin/feature/expired-events-list/expired-events-list.js"></script>
+    <script src="{{request.contextPath}}/resources/js/admin/feature/active-events-list/active-events-list.js"></script>
 
     <script src="{{request.contextPath}}/resources/js/admin/feature/event-data-to-collect/event-data-to-collect.js"></script>
 
@@ -75,6 +76,7 @@
     <script src="{{request.contextPath}}/resources/js/admin/feature/reservation/view/reservation-view.js"></script>
 
     <script src="{{request.contextPath}}/resources/js/admin/feature/reservations-list/reservations-list.js"></script>
+    <script src="{{request.contextPath}}/resources/js/admin/feature/tickets-list/tickets-list.js"></script>
 
     <link rel="stylesheet" href="{{request.contextPath}}/resources/js/admin/feature/reservation/create/reservation-create.css" />
 
@@ -87,7 +89,7 @@
     <div class="navbar navbar-default navbar-fixed-top" role="navigation" data-ng-controller="MenuController as ctrl">
         <div class="container-fluid">
             <div class="row">
-                <div class="col-xs-12 col-md-10 col-md-push-1">
+                <div class="col-xs-12 col-lg-11">
                     <div class="navbar-header">
                         <button type="button" class="navbar-toggle" data-ng-click="ctrl.toggleCollapse(ctrl.menuCollapsed)">
                             <span class="sr-only">Toggle navigation</span>
@@ -101,13 +103,54 @@
                         <div class="collapse navbar-collapse" data-uib-collapse="ctrl.menuCollapsed">
                             <ul class="nav navbar-nav">
                                 <li data-ui-sref-active="active"><a data-ui-sref="index">Dashboard</a></li>
-                                {{#isAdmin}}<li data-ui-sref-active="active"><a data-ui-sref="organizations">Organizations</a></li>{{/isAdmin}}
+                                <li data-ui-sref-active="active"><a data-ui-sref="organizations">Organizations</a></li>
                                 <li data-ui-sref-active="active"><a data-ui-sref="users">Users</a></li>
                                 <li data-ui-sref-active="active"><a data-ui-sref="configuration.system">Configuration</a></li>
+                            </ul>
+                            <ul class="nav navbar-nav visible-sm visible-xs" ng-if="ctrl.eventName">
+                                <li class="navbar-header"><h4>Actions</h4></li>
+                                <li data-ui-sref-active="active"><a data-ui-sref="events.single.create-reservation({eventName: ctrl.eventName})"><i class="fa fa-magic"></i> create reservation</a></li>
+                                <li data-ui-sref-active="active"><a data-ui-sref="events.single.configuration({eventName: ctrl.eventName})"><i class="fa fa-wrench"></i> edit configuration</a></li>
+                                <li data-ui-sref-active="active"><a data-ui-sref="events.single.show-resources({eventName: ctrl.eventName})"><i class="fa fa-file-text-o" aria-hidden="true"></i> customize templates</a></li>
+                                <li data-ui-sref-active="active"><a data-ui-sref="events.single.compose-custom-message({eventName: ctrl.eventName})"><i class="fa fa-envelope"></i> compose message</a></li>
+                                <li data-ui-sref-active="active" data-ng-if="!ctrl.event.expired"><a data-ui-sref="events.single.checkIn({eventName: ctrl.eventName})"><i class="fa fa-check"></i> Check-in</a></li>
+                            </ul>
+                            <ul class="nav navbar-nav visible-sm visible-xs" ng-if="ctrl.eventName">
+                                <li class="navbar-header"><h4>Status</h4></li>
+                                <li data-ui-sref-active="active" waiting-queue-display-counter="" data-event-name="ctrl.eventName" data-style-class="navbar-link"></li>
+                                <li data-ui-sref-active="active" pending-payments-link="" data-style-class="emulate-nav-pills-link" data-event-name="ctrl.eventName"></li>
+                            </ul>
+
+                            <ul class="nav navbar-nav visible-sm visible-xs" ng-if="ctrl.eventName">
+                                <li class="navbar-header"><h4>Navigate</h4></li>
+                                <li role="presentation" data-ui-sref-active="active">
+                                    <a ui-sref="events.single.dataToCollect({eventName: ctrl.eventName})"><i class="fa fa-info-circle"></i> Attendees' data to collect</a>
+                                </li>
+                                <li role="presentation" data-ui-sref-active="active">
+                                    <a ui-sref="events.single.promoCodes({eventName: ctrl.eventName})"><i class="fa fa-percent"></i> Promo Codes</a>
+                                </li>
+                                <li role="presentation" data-ui-sref-active="active">
+                                    <a ui-sref="events.single.additionalServices({eventName: ctrl.eventName})"><i class="fa fa-money"></i> Additional options</a>
+                                </li>
+                                <li role="presentation" data-ui-sref-active="active">
+                                    <a ui-sref="events.single.donations({eventName: ctrl.eventName})"><i class="fa fa-gift"></i> Donation options</a>
+                                </li>
+                                <li role="presentation" data-ui-sref-active="active">
+                                    <a data-ui-sref="events.single.reservationsList({eventName:ctrl.eventName})"><i class="fa fa-ticket"></i> Reservations</a>
+                                </li>
+                                <li role="presentation" data-ui-sref-active="active">
+                                    <a data-ui-sref="events.single.email-log({eventName:ctrl.eventName})"><i class="fa fa-paper-plane-o"></i> E-mail log</a>
+                                </li>
+                                <li role="presentation" data-ui-sref-active="active">
+                                    <a data-ui-sref="events.single.plugin-log({eventName:ctrl.eventName})"><i class="fa fa-plug"></i> Plugins log</a>
+                                </li>
+                            </ul>
+                            <ul class="nav navbar-nav visible-sm visible-xs">
                                 <li class="nav-divider"></li>
-                                <li class="visible-xs navbar-text"><i class="fa fa-user"></i> Logged in as {{username}}</li>
-                                <li class="visible-xs"><a href="#" data-ui-sref="edit-current-user" title="click to update account details"><i class="fa fa-edit"></i> edit account</a></li>
-                                <li class="visible-xs"><a href="" data-ng-click="ctrl.doLogout()">Logout</a></li>
+                                <li class="visible-xs visible-sm">
+                                    <div class="pull-left"><a href="#" class="navbar-link" data-ui-sref="edit-current-user" title="click to update account details"><i class="fa fa-user"></i> {{username}}</a></div>
+                                    <div class="pull-right"><a href="" class="navbar-link" data-ng-click="ctrl.doLogout()"><i class="fa fa-sign-out"></i> Log out</a></div>
+                                </li>
                             </ul>
                         </div>
                     </div>
@@ -126,10 +169,10 @@
     <div data-ng-controller="LayoutController as ctrl" data-ng-switch="ctrl.displaySidebar">
         <div class="container-fluid menu-spacer" data-ng-show="ctrl.displaySidebar">
             <div class="row">
-                <div class="hidden-xs hidden-sm col-md-2 col-md-push-1">
+                <div class="hidden-xs hidden-sm col-md-3 col-lg-2">
                     <alfio-sidebar></alfio-sidebar>
                 </div>
-                <div class="col-sm-12 col-xs-12 col-md-8 col-md-push-1">
+                <div class="col-sm-12 col-xs-12 col-md-9">
                     <div data-ui-view></div>
                 </div>
             </div>

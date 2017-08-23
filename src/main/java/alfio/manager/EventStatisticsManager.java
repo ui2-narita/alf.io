@@ -18,28 +18,27 @@ package alfio.manager;
 
 import alfio.manager.user.UserManager;
 import alfio.model.*;
-import alfio.model.modification.EventWithStatistics;
-import alfio.model.modification.TicketCategoryWithStatistic;
 import alfio.model.modification.TicketWithStatistic;
+import alfio.model.user.Organization;
 import alfio.repository.*;
 import alfio.util.EventUtil;
+import alfio.util.MonetaryUtil;
+import lombok.AllArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.math.BigDecimal;
+import java.util.*;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
-import static alfio.util.OptionalWrapper.optionally;
 import static java.util.stream.Collectors.toList;
 
 @Component
+@AllArgsConstructor
 public class EventStatisticsManager {
 
     private final EventRepository eventRepository;
@@ -50,38 +49,10 @@ public class EventStatisticsManager {
     private final TicketReservationRepository ticketReservationRepository;
     private final SpecialPriceRepository specialPriceRepository;
     private final UserManager userManager;
-    private final TransactionRepository transactionRepository;
-
-    @Autowired
-    public EventStatisticsManager(EventRepository eventRepository,
-                                  EventDescriptionRepository eventDescriptionRepository,
-                                  TicketRepository ticketRepository,
-                                  TicketCategoryRepository ticketCategoryRepository,
-                                  TicketCategoryDescriptionRepository ticketCategoryDescriptionRepository,
-                                  TicketReservationRepository ticketReservationRepository,
-                                  SpecialPriceRepository specialPriceRepository,
-                                  UserManager userManager,
-                                  TransactionRepository transactionRepository) {
-        this.eventRepository = eventRepository;
-        this.eventDescriptionRepository = eventDescriptionRepository;
-        this.ticketRepository = ticketRepository;
-        this.ticketCategoryRepository = ticketCategoryRepository;
-        this.ticketCategoryDescriptionRepository = ticketCategoryDescriptionRepository;
-        this.ticketReservationRepository = ticketReservationRepository;
-        this.specialPriceRepository = specialPriceRepository;
-        this.userManager = userManager;
-        this.transactionRepository = transactionRepository;
-    }
-
-    EventWithStatistics fillWithStatistics(Event event) {
-        return new EventWithStatistics(event, eventDescriptionRepository.findByEventId(event.getId()), loadTicketCategoriesWithStats(event), ticketRepository.countReleasedTickets(event.getId()));
-    }
 
     private List<Event> getAllEvents(String username) {
-        return userManager.findUserOrganizations(username)
-                .parallelStream()
-                .flatMap(o -> eventRepository.findByOrganizationId(o.getId()).stream())
-                .collect(Collectors.toList());
+        List<Integer> orgIds = userManager.findUserOrganizations(username).stream().map(Organization::getId).collect(toList());
+        return orgIds.isEmpty() ? Collections.emptyList() : eventRepository.findByOrganizationIds(orgIds);
     }
 
 
@@ -96,70 +67,59 @@ public class EventStatisticsManager {
         }
     }
 
+
     @Cacheable
     public List<EventStatistic> getAllEventsWithStatistics(String username) {
         return getAllEventsWithStatisticsFilteredBy(username, (e) -> true);
     }
 
-    TicketCategoryWithStatistic loadTicketCategoryWithStats(int categoryId, Event event) {
-        final TicketCategory tc = ticketCategoryRepository.getById(categoryId, event.getId());
-        return new TicketCategoryWithStatistic(tc,
-                loadModifiedTickets(event.getId(), tc.getId()),
-                specialPriceRepository.findAllByCategoryId(tc.getId()),
-                event,
-                descriptionForTicketCategory(tc.getId()));
+    public EventWithAdditionalInfo getEventWithAdditionalInfo(String eventName, String username) {
+        Event event = getEventAndCheckOwnership(eventName, username);
+        Map<String, String> description = eventDescriptionRepository.findByEventIdAsMap(event.getId());
+        EventStatistic eventStatistic = new EventStatistic(event, eventRepository.findStatisticsFor(event.getId()));
+        BigDecimal grossIncome = MonetaryUtil.centsToUnit(eventRepository.getGrossIncome(event.getId()));
+
+        List<TicketCategory> ticketCategories = loadTicketCategories(event);
+        List<Integer> ticketCategoriesIds = ticketCategories.stream().map(TicketCategory::getId).collect(Collectors.toList());
+
+        Map<Integer, Map<String, String>> descriptions = ticketCategoryDescriptionRepository.descriptionsByTicketCategory(ticketCategoriesIds);
+        Map<Integer, TicketCategoryStatisticView> ticketCategoriesStatistics = ticketCategoryRepository.findStatisticsForEventIdByCategoryId(event.getId());
+        Map<Integer, List<SpecialPrice>> specialPrices = specialPriceRepository.findAllByCategoriesIdsMapped(ticketCategoriesIds);
+
+        List<TicketCategoryWithAdditionalInfo> tWithInfo = ticketCategories.stream()
+            .map(t -> new TicketCategoryWithAdditionalInfo(event, t, ticketCategoriesStatistics.get(t.getId()), descriptions.get(t.getId()), specialPrices.get(t.getId())))
+            .collect(Collectors.toList());
+
+        return new EventWithAdditionalInfo(event, tWithInfo, eventStatistic, description, grossIncome);
     }
 
-    private Map<String, String> descriptionForTicketCategory(int ticketCategory) {
-        return ticketCategoryDescriptionRepository.findByTicketCategoryId(ticketCategory).stream().collect(Collectors.toMap(TicketCategoryDescription::getLocale, TicketCategoryDescription::getDescription));
-    }
-
-    public List<TicketCategoryWithStatistic> loadTicketCategoriesWithStats(Event event) {
-        return loadTicketCategories(event).stream()
-                .map(tc -> new TicketCategoryWithStatistic(tc, loadModifiedTickets(tc.getEventId(), tc.getId()),
-                    specialPriceRepository.findAllByCategoryId(tc.getId()), event,
-                    descriptionForTicketCategory(tc.getId())))
-                .sorted()
-                .collect(toList());
-    }
-
-    public List<TicketCategory> loadTicketCategories(Event event) {
+    private List<TicketCategory> loadTicketCategories(Event event) {
         return ticketCategoryRepository.findByEventId(event.getId());
     }
 
-    public EventWithStatistics getSingleEventWithStatistics(String eventName, String username) {
-        return fillWithStatistics(getSingleEvent(eventName, username));
-    }
-
-    private Event getSingleEvent(String eventName, String username) {
-        final Event event = eventRepository.findByShortName(eventName);
-        checkOwnership(event, username, event.getOrganizationId());
+    private Event getEventAndCheckOwnership(String eventName, String username) {
+        Event event = eventRepository.findByShortName(eventName);
+        userManager.findOrganizationById(event.getId(), username);
         return event;
     }
 
-    private void checkOwnership(Event event, String username, int organizationId) {
-        Validate.isTrue(organizationId == event.getOrganizationId(), "invalid organizationId");
-        userManager.findUserOrganizations(username)
-                .stream()
-                .filter(o -> o.getId() == organizationId)
-                .findAny()
-                .orElseThrow(IllegalArgumentException::new);
-    }
-
-    private List<TicketWithStatistic> loadModifiedTickets(int eventId, int categoryId) {
+    public List<TicketWithStatistic> loadModifiedTickets(int eventId, int categoryId) {
         Event event = eventRepository.findById(eventId);
-        return ticketRepository.findAllModifiedTickets(eventId, categoryId).stream()
-                .map(t -> new TicketWithStatistic(t, event, ticketReservationRepository.findReservationById(t.getTicketsReservationId()),
-                        event.getZoneId(), optionally(() -> transactionRepository.loadByReservationId(t.getTicketsReservationId()))))
-                .sorted()
-                .collect(Collectors.toList());
+        return ticketRepository.findAllModifiedTicketsWithReservationAndTransaction(eventId, categoryId).stream()
+            .map(t -> new TicketWithStatistic(t.getTicket(), event, t.getTicketReservation(), event.getZoneId(), t.getTransaction()))
+            .sorted()
+            .collect(Collectors.toList());
     }
 
     public Predicate<Event> noSeatsAvailable() {
         return event -> {
-            EventWithStatistics eventWithStatistics = fillWithStatistics(event);
-            return eventWithStatistics.getTicketCategories().stream().allMatch(tc -> EventUtil.determineAvailableSeats(tc, eventWithStatistics) == 0);
+            Map<Integer, TicketCategoryStatisticView> stats = ticketCategoryRepository.findStatisticsForEventIdByCategoryId(event.getId());
+            EventStatisticView eventStatisticView = eventRepository.findStatisticsFor(event.getId());
+            return ticketCategoryRepository.findAllTicketCategories(event.getId()).stream().allMatch(tc -> EventUtil.determineAvailableSeats(stats.get(tc.getId()), eventStatisticView) == 0);
         };
     }
 
+    public List<TicketSoldStatistic> getTicketSoldStatistics(int eventId, Date from, Date to) {
+        return ticketReservationRepository.getSoldStatistic(eventId, from, to);
+    }
 }

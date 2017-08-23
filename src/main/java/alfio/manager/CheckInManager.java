@@ -20,27 +20,21 @@ import alfio.manager.support.CheckInStatus;
 import alfio.manager.support.DefaultCheckInResult;
 import alfio.manager.support.OnSitePaymentResult;
 import alfio.manager.support.TicketAndCheckInResult;
-import alfio.model.Event;
-import alfio.model.FullTicketInfo;
-import alfio.model.Ticket;
+import alfio.model.*;
 import alfio.model.Ticket.TicketStatus;
-import alfio.model.TicketReservation;
 import alfio.model.audit.ScanAudit;
 import alfio.model.transaction.PaymentProxy;
-import alfio.repository.EventRepository;
-import alfio.repository.TicketFieldRepository;
-import alfio.repository.TicketRepository;
-import alfio.repository.TicketReservationRepository;
+import alfio.repository.*;
 import alfio.repository.audit.ScanAuditRepository;
 import alfio.util.Json;
 import alfio.util.MonetaryUtil;
+import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.tuple.Pair;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,11 +53,11 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static alfio.manager.support.CheckInStatus.*;
-import static alfio.util.OptionalWrapper.optionally;
 
 @Component
 @Transactional
 @Log4j2
+@AllArgsConstructor
 public class CheckInManager {
 
     private final TicketRepository ticketRepository;
@@ -71,19 +65,7 @@ public class CheckInManager {
     private final TicketReservationRepository ticketReservationRepository;
     private final TicketFieldRepository ticketFieldRepository;
     private final ScanAuditRepository scanAuditRepository;
-
-    @Autowired
-    public CheckInManager(TicketRepository ticketRepository,
-                          EventRepository eventRepository,
-                          TicketReservationRepository ticketReservationRepository,
-                          TicketFieldRepository ticketFieldRepository,
-                          ScanAuditRepository scanAuditRepository) {
-        this.ticketRepository = ticketRepository;
-        this.eventRepository = eventRepository;
-        this.ticketReservationRepository = ticketReservationRepository;
-        this.ticketFieldRepository = ticketFieldRepository;
-        this.scanAuditRepository = scanAuditRepository;
-    }
+    private final AuditingRepository auditingRepository;
 
 
     private void checkIn(String uuid) {
@@ -123,6 +105,7 @@ public class CheckInManager {
         if(descriptor.getResult().getStatus() == OK_READY_TO_BE_CHECKED_IN) {
             checkIn(ticketIdentifier);
             scanAuditRepository.insert(ticketIdentifier, eventId, ZonedDateTime.now(), user, SUCCESS, ScanAudit.Operation.SCAN);
+            auditingRepository.insert(descriptor.getTicket().getTicketsReservationId(), null, eventId, Audit.EventType.CHECK_IN, new Date(), Audit.EntityType.TICKET, Integer.toString(descriptor.getTicket().getId()));
             return new TicketAndCheckInResult(descriptor.getTicket(), new DefaultCheckInResult(SUCCESS, "success"));
         }
         return descriptor;
@@ -138,6 +121,7 @@ public class CheckInManager {
 
             checkIn(ticketIdentifier);
             scanAuditRepository.insert(ticketIdentifier, eventId, ZonedDateTime.now(), user, SUCCESS, ScanAudit.Operation.SCAN);
+            auditingRepository.insert(t.getTicketsReservationId(), null, eventId, Audit.EventType.CHECK_IN, new Date(), Audit.EntityType.TICKET, Integer.toString(t.getId()));
             return true;
         }).orElse(false);
     }
@@ -149,6 +133,7 @@ public class CheckInManager {
                 TicketStatus revertedStatus = reservation.getPaymentMethod() == PaymentProxy.ON_SITE ? TicketStatus.TO_BE_PAID : TicketStatus.ACQUIRED;
                 ticketRepository.updateTicketStatusWithUUID(ticketIdentifier, revertedStatus.toString());
                 scanAuditRepository.insert(ticketIdentifier, eventId, ZonedDateTime.now(), user, OK_READY_TO_BE_CHECKED_IN, ScanAudit.Operation.REVERT);
+                auditingRepository.insert(t.getTicketsReservationId(), null, eventId, Audit.EventType.REVERT_CHECK_IN, new Date(), Audit.EntityType.TICKET, Integer.toString(t.getId()));
                 return true;
             }
             return false;
@@ -164,15 +149,15 @@ public class CheckInManager {
     }
 
     public TicketAndCheckInResult evaluateTicketStatus(int eventId, String ticketIdentifier, Optional<String> ticketCode) {
-        return extractStatus(optionally(() -> eventRepository.findById(eventId)), optionally(() -> ticketRepository.findByUUID(ticketIdentifier)), ticketIdentifier, ticketCode);
+        return extractStatus(eventRepository.findOptionalById(eventId), ticketRepository.findOptionalByUUID(ticketIdentifier), ticketIdentifier, ticketCode);
     }
 
     public TicketAndCheckInResult evaluateTicketStatus(String eventName, String ticketIdentifier, Optional<String> ticketCode) {
-        return extractStatus(eventRepository.findOptionalByShortName(eventName), optionally(() -> ticketRepository.findByUUID(ticketIdentifier)), ticketIdentifier, ticketCode);
+        return extractStatus(eventRepository.findOptionalByShortName(eventName), ticketRepository.findOptionalByUUID(ticketIdentifier), ticketIdentifier, ticketCode);
     }
 
     private TicketAndCheckInResult extractStatus(int eventId, Optional<Ticket> maybeTicket, String ticketIdentifier, Optional<String> ticketCode) {
-        return extractStatus(optionally(() -> eventRepository.findById(eventId)), maybeTicket, ticketIdentifier, ticketCode);
+        return extractStatus(eventRepository.findOptionalById(eventId), maybeTicket, ticketIdentifier, ticketCode);
     }
 
     private TicketAndCheckInResult extractStatus(Optional<Event> maybeEvent, Optional<Ticket> maybeTicket, String ticketIdentifier, Optional<String> ticketCode) {
@@ -232,7 +217,7 @@ public class CheckInManager {
         }
     }
 
-    static String encrypt(String key, String payload)  {
+    public static String encrypt(String key, String payload)  {
         try {
             Pair<Cipher, SecretKeySpec> cipherAndSecret = getCypher(key);
             Cipher cipher = cipherAndSecret.getKey();
@@ -245,7 +230,7 @@ public class CheckInManager {
         }
     }
 
-    static String decrypt(String key, String payload) {
+    public static String decrypt(String key, String payload) {
         try {
             Pair<Cipher, SecretKeySpec> cipherAndSecret = getCypher(key);
             Cipher cipher = cipherAndSecret.getKey();
@@ -260,9 +245,16 @@ public class CheckInManager {
         }
     }
 
-    public Map<String,String> getEncryptedAttendeesInformation(String eventName, Set<String> additionalFields) {
+    public List<Integer> getAttendeesIdentifiers(String eventName, Date changedSince) {
+        return eventRepository.findOptionalByShortName(eventName)
+            .map(event -> ticketRepository.findAllAssignedByEventId(event.getId(), changedSince))
+            .orElseGet(Collections::emptyList);
+    }
+
+    public Map<String,String> getEncryptedAttendeesInformation(String eventName, Set<String> additionalFields, List<Integer> ids) {
         return eventRepository.findOptionalByShortName(eventName).map(event -> {
             String eventKey = event.getPrivateKey();
+
             Function<FullTicketInfo, String> hashedHMAC = ticket -> DigestUtils.sha256Hex(ticket.hmacTicketInfo(eventKey));
 
             Function<FullTicketInfo, String> encryptedBody = ticket -> {
@@ -280,10 +272,10 @@ public class CheckInManager {
                 String key = ticket.ticketCode(eventKey);
                 return encrypt(key, Json.toJson(info));
             };
-            return ticketRepository.findAllFullTicketInfoAssignedByEventId(event.getId())
+            return ticketRepository.findAllFullTicketInfoAssignedByEventId(event.getId(), ids)
                 .stream()
                 .collect(Collectors.toMap(hashedHMAC, encryptedBody));
 
-        }).orElse(Collections.emptyMap());
+        }).orElseGet(Collections::emptyMap);
     }
 }

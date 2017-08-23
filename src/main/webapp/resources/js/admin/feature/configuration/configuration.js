@@ -145,6 +145,19 @@
         });
     }
 
+
+    function handleEuCountries(conf, euCountries) {
+        if(conf.invoiceEu) {
+            var euCountries = _.map(euCountries, function(o) {
+                var key = Object.keys(o)[0];
+                return {key: key, value: o[key]};
+            });
+            _.forEach(_.filter(conf.invoiceEu.settings, function(e) {return e.key === 'COUNTRY_OF_BUSINESS'}), function(cb) {
+                cb.listValues = euCountries;
+            });
+        }
+    }
+
     ConfigurationController.$inject = ['OrganizationService', 'EventService', '$q', '$rootScope'];
 
     function SystemConfigurationController(ConfigurationService, EventService, NotificationHandler, $rootScope, $q) {
@@ -159,15 +172,7 @@
                 if(systemConf.general) {
                     systemConf.general.selectedLanguages = _.chain(systemConf.allLanguages).map('value').filter(function(x) {return parseInt(systemConf.general.supportedTranslations.value) & x;}).value();
                 }
-                if(systemConf.invoiceEu) {
-                    var euCountries = _.map(results[2].data, function(o) {
-                        var key = Object.keys(o)[0];
-                        return {key: key, value: o[key]};
-                    });
-                    _.forEach(_.filter(systemConf.invoiceEu.settings, function(e) {return e.key === 'COUNTRY_OF_BUSINESS'}), function(cb) {
-                        cb.listValues = euCountries;
-                    });
-                }
+                handleEuCountries(systemConf, results[2].data);
             }, function() {
                 systemConf.loading = false;
             });
@@ -204,15 +209,16 @@
 
     SystemConfigurationController.$inject = ['ConfigurationService', 'EventService', 'NotificationHandler', '$rootScope', '$q'];
 
-    function OrganizationConfigurationController(ConfigurationService, OrganizationService, $stateParams, $q, $rootScope) {
+    function OrganizationConfigurationController(ConfigurationService, OrganizationService, NotificationHandler, $stateParams, $q, $rootScope) {
         var organizationConf = this;
         organizationConf.organizationId = $stateParams.organizationId;
         var load = function() {
             organizationConf.loading = true;
-            $q.all([OrganizationService.getOrganization(organizationConf.organizationId), ConfigurationService.loadOrganizationConfig(organizationConf.organizationId)])
+            $q.all([OrganizationService.getOrganization(organizationConf.organizationId), ConfigurationService.loadOrganizationConfig(organizationConf.organizationId), ConfigurationService.loadEUCountries()])
                 .then(function(result) {
                     organizationConf.organization = result[0].data;
                     loadSettings(organizationConf, result[1].data, ConfigurationService);
+                    handleEuCountries(organizationConf, result[2].data);
                 }, function() {
                     organizationConf.loading = false;
                 });
@@ -225,7 +231,9 @@
             organizationConf.loading = true;
             ConfigurationService.updateOrganizationConfig(organizationConf.organization, organizationConf.settings).then(function() {
                 load();
+                NotificationHandler.showSuccess("Configurations have been saved successfully");
             }, function(e) {
+                NotificationHandler.showError("Unable to save the configuration");
                 alert(e.data);
                 organizationConf.loading = false;
             });
@@ -240,9 +248,9 @@
         });
     }
 
-    OrganizationConfigurationController.$inject = ['ConfigurationService', 'OrganizationService', '$stateParams', '$q', '$rootScope'];
+    OrganizationConfigurationController.$inject = ['ConfigurationService', 'OrganizationService', 'NotificationHandler', '$stateParams', '$q', '$rootScope'];
 
-    function EventConfigurationController(ConfigurationService, EventService, $q, $rootScope, $stateParams) {
+    function EventConfigurationController(ConfigurationService, EventService, NotificationHandler, $q, $rootScope, $stateParams) {
         var eventConf = this;
         var getData = function() {
             if(angular.isDefined($stateParams.eventName)) {
@@ -289,7 +297,9 @@
             eventConf.loading = true;
             $q.all([ConfigurationService.updateEventConfig(eventConf.organizationId, eventConf.eventId, eventConf.settings), ConfigurationService.bulkUpdatePlugins(eventConf.eventId, eventConf.pluginSettings)]).then(function() {
                 load();
+                NotificationHandler.showSuccess("Configurations have been saved successfully");
             }, function(e) {
+                NotificationHandler.showError("Unable to save the configuration");
                 alert(e.data);
                 eventConf.loading = false;
             });
@@ -304,7 +314,7 @@
         });
     }
 
-    EventConfigurationController.$inject = ['ConfigurationService', 'EventService', '$q', '$rootScope', '$stateParams'];
+    EventConfigurationController.$inject = ['ConfigurationService', 'EventService', 'NotificationHandler', '$q', '$rootScope', '$stateParams'];
 
     function loadSettings(container, settings, ConfigurationService) {
         var general = settings['GENERAL'] || [];

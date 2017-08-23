@@ -14,20 +14,16 @@
  * You should have received a copy of the GNU General Public License
  * along with alf.io.  If not, see <http://www.gnu.org/licenses/>.
  */
-package alfio.manager.location;
+package alfio.config;
 
-import org.apache.commons.lang3.tuple.Pair;
-import org.springframework.cache.annotation.Cacheable;
+import lombok.AllArgsConstructor;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
+import org.springframework.session.jdbc.config.annotation.web.http.EnableJdbcHttpSession;
 
-import java.util.TimeZone;
-
-public interface LocationManager {
-    @Cacheable
-    Pair<String, String> geocode(String address);
-
-    @Cacheable
-    TimeZone getTimezone(Pair<String, String> location);
-
-    @Cacheable
-    TimeZone getTimezone(String latitude, String longitude);
+@Profile(Initializer.PROFILE_JDBC_SESSION)
+@Configuration
+@EnableJdbcHttpSession(maxInactiveIntervalInSeconds = 4 * 60 * 60) //4h
+@AllArgsConstructor
+public class JdbcSessionConfiguration {
 }

@@ -64,7 +64,7 @@ form.force-show-errors textarea.ng-invalid + field-error > div.text-danger {
 }
 
 .category-name {
-    margin-top:4px
+    margin-top:4px;
 }
 
 .category-danger {
@@ -155,8 +155,17 @@ td.cell-wrap {
     overflow-wrap: normal;
 }
 
+.event-statistic-highlighted {
+    font-size:3.5em;
+    font-weight: normal;
+}
+
+.icon-overview {
+    font-size: 5em !important;
+}
+
 /* for phone :D */
-@media screen and (max-width: 767px) {
+@media screen and (max-width: 990px) {
 
     table.check-in-data thead {
       display: none;
@@ -189,39 +198,35 @@ td.cell-wrap {
       text-transform: uppercase;
       font-weight: bold;
     }
+
+    .event-statistic-highlighted {
+        font-size:1em;
+        font-weight: bold;
+    }
+    .icon-overview {
+        font-size: 1.5em !important;
+    }
+
+    .settings-label-top {
+        display: inline-block!important;
+    }
+}
+
+@media screen and (min-width: 991px) {
+
+    .setting input[type="text"], .setting input:not([type]), .setting textarea, .setting select {
+        padding-left: 85px;
+    }
+
+    .settings-label {
+        position: absolute;
+        left: 20px;
+        top: 9px;
+    }
 }
 
 .ngf-hide {
     display:none !important
-}
-
-.system-setting {
-    color: blue;
-}
-
-@media (min-width: 992px) {
-    div.sidebar {
-        width:175px;
-    }
-}
-
-@media (min-width: 1150px) {
-    div.sidebar {
-        width:200px;
-    }
-}
-
-@media (min-width: 1550px) {
-    div.sidebar {
-        width:300px;
-    }
-}
-
-@media (min-height: 900px) {
-    div.sidebar {
-        position: fixed;
-        top:20px;
-    }
 }
 
 a[data-ng-click], a[ng-click] {
@@ -284,10 +289,6 @@ a.emulate-nav-pills-link {
 
 .alert-form {
     margin-top:28px;
-}
-
-.event-statistic-highlighted {
-    font-size:3.5em;
 }
 
 /* pie chart */
@@ -419,4 +420,9 @@ a.emulate-nav-pills-link {
 
 .modal-min-1200 {
     min-width:1200px;
+}
+
+.event-list-logo {
+    max-width: 64px;
+    height: auto;
 }

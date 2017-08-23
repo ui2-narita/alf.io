@@ -68,6 +68,7 @@ import static org.apache.commons.lang3.StringUtils.trimToNull;
 @Component
 @Log4j2
 @RequiredArgsConstructor
+@Transactional
 public class AdminReservationManager {
 
     private final EventManager eventManager;
@@ -142,7 +143,6 @@ public class AdminReservationManager {
         }
     }
 
-    @Transactional
     public Result<Boolean> notify(String eventName, String reservationId, AdminReservationModification arm, String username) {
         AdminReservationModification.Notification notification = arm.getNotification();
         return eventRepository.findOptionalByShortName(eventName)
@@ -185,7 +185,6 @@ public class AdminReservationManager {
         return Result.success(true);
     }
 
-    @Transactional
     public Result<Triple<TicketReservation, List<Ticket>, Event>> loadReservation(String eventName, String reservationId, String username) {
         return eventRepository.findOptionalByShortName(eventName)
             .flatMap(e -> optionally(() -> {
@@ -372,7 +371,7 @@ public class AdminReservationManager {
 
         int tickets = attendees.size();
         TicketCategoryModification tcm = new TicketCategoryModification(category.getExistingCategoryId(), category.getName(), tickets,
-            inception, reservation.getExpiration(), Collections.emptyMap(), category.getPrice(), true, "", true);
+            inception, reservation.getExpiration(), Collections.emptyMap(), category.getPrice(), true, "", true, null);
         int notAllocated = getNotAllocatedTickets(event);
         int missingTickets = Math.max(tickets - notAllocated, 0);
         Event modified = increaseSeatsIfNeeded(ti, event, missingTickets, event);
@@ -384,7 +383,7 @@ public class AdminReservationManager {
             createMissingTickets(event, missingTickets);
             //update seats and reload event
             log.debug("adding {} extra seats to the event", missingTickets);
-            eventRepository.updateAvailableSeats(event.getId(), event.getAvailableSeats() + missingTickets);
+            eventRepository.updateAvailableSeats(event.getId(), eventRepository.countExistingTickets(event.getId()) + missingTickets);
             modified = eventRepository.findById(event.getId());
         }
         return modified;
@@ -409,18 +408,17 @@ public class AdminReservationManager {
             int maxTickets = existing.getMaxTickets() + (tickets - freeTicketsInCategory);
             TicketCategoryModification tcm = new TicketCategoryModification(existingCategoryId, existing.getName(), maxTickets,
                 DateTimeModification.fromZonedDateTime(existing.getInception(modified.getZoneId())), DateTimeModification.fromZonedDateTime(existing.getExpiration(event.getZoneId())),
-                Collections.emptyMap(), existing.getPrice(), existing.isAccessRestricted(), "", true);
+                Collections.emptyMap(), existing.getPrice(), existing.isAccessRestricted(), "", true, existing.getCode());
             return eventManager.updateCategory(existingCategoryId, modified, tcm, username);
         }
         return Result.success(existing);
     }
 
     private void createMissingTickets(Event event, int tickets) {
-        final MapSqlParameterSource[] params = generateEmptyTickets(event, Date.from(ZonedDateTime.now(event.getZoneId()).toInstant()), tickets).toArray(MapSqlParameterSource[]::new);
+        final MapSqlParameterSource[] params = generateEmptyTickets(event, Date.from(ZonedDateTime.now(event.getZoneId()).toInstant()), tickets, Ticket.TicketStatus.FREE).toArray(MapSqlParameterSource[]::new);
         jdbc.batchUpdate(ticketRepository.bulkTicketInitialization(), params);
     }
 
-    @Transactional
     public void removeTickets(String eventName, String reservationId, List<Integer> ticketIds, List<Integer> toRefund, boolean notify, String username) {
         loadReservation(eventName, reservationId, username).ifSuccess((res) -> {
             Event e = res.getRight();
@@ -455,7 +453,6 @@ public class AdminReservationManager {
     }
 
 
-    @Transactional
     public void removeReservation(String eventName, String reservationId, boolean refund, boolean notify, String username) {
         loadReservation(eventName, reservationId, username).ifSuccess((res) -> {
             Event e = res.getRight();
@@ -479,12 +476,9 @@ public class AdminReservationManager {
         return loadReservation(eventName, reservationId, username).map((res) -> {
             Event e = res.getRight();
             TicketReservation reservation = res.getLeft();
-
-            if(reservation.getPaymentMethod() != null && reservation.getPaymentMethod().isSupportRefund()) {
-                return paymentManager.refund(reservation, e, Optional.of(MonetaryUtil.unitToCents(refundAmount)), username);
-            } else {
-                return false;
-            }
+            return reservation.getPaymentMethod() != null
+                && reservation.getPaymentMethod().isSupportRefund()
+                && paymentManager.refund(reservation, e, Optional.of(MonetaryUtil.unitToCents(refundAmount)), username);
         });
     }
 
@@ -502,7 +496,7 @@ public class AdminReservationManager {
         Date date = new Date();
 
         ticketIds.forEach(id -> {
-            auditingRepository.insert(reservationId, userId, Audit.EventType.CANCEL_TICKET, date, Audit.EntityType.TICKET, id.toString());
+            auditingRepository.insert(reservationId, userId, event.getId(), Audit.EventType.CANCEL_TICKET, date, Audit.EntityType.TICKET, id.toString());
         });
 
         ticketRepository.resetCategoryIdForUnboundedCategoriesWithTicketIds(ticketIds);

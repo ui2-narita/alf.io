@@ -110,6 +110,8 @@ public class PaymentManager {
             log.warn("errow while processing paypal payment: " + e.getMessage(), e);
             if(e instanceof PayPalRESTException) {
                 return PaymentResult.unsuccessful(ErrorsCode.STEP_2_PAYPAL_UNEXPECTED);
+            } else if(e instanceof PaypalManager.HandledPaypalErrorException) {
+                return PaymentResult.unsuccessful(e.getMessage());
             }
             throw new IllegalStateException(e);
         }
@@ -153,6 +155,7 @@ public class PaymentManager {
             changes.put("refund", amount.map(i -> i.toString()).orElse("full"));
             changes.put("paymentMethod", reservation.getPaymentMethod().toString());
             auditingRepository.insert(reservation.getId(), userRepository.findIdByUserName(username).orElse(null),
+                event.getId(),
                 Audit.EventType.REFUND, new Date(), Audit.EntityType.RESERVATION, reservation.getId(),
                 Collections.singletonList(changes));
         }

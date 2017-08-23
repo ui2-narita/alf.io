@@ -16,18 +16,15 @@
  */
 package alfio.manager.system;
 
-import alfio.model.AdditionalService;
-import alfio.model.Event;
-import alfio.model.PriceContainer;
-import alfio.model.PromoCodeDiscount;
+import alfio.model.*;
 import alfio.model.system.ConfigurationKeys;
 import alfio.model.system.EventMigration;
+import alfio.model.transaction.PaymentProxy;
 import alfio.repository.EventRepository;
-import alfio.repository.TicketRepository;
+import alfio.repository.TicketCategoryRepository;
 import alfio.repository.plugin.PluginConfigurationRepository;
 import alfio.repository.system.ConfigurationRepository;
 import alfio.repository.system.EventMigrationRepository;
-import alfio.util.EventUtil;
 import alfio.util.MonetaryUtil;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.Validate;
@@ -63,7 +60,7 @@ public class DataMigrator {
     private static final Map<String, String> PRICE_UPDATE_BY_KEY = new LinkedHashMap<>();
     private final EventMigrationRepository eventMigrationRepository;
     private final EventRepository eventRepository;
-    private final TicketRepository ticketRepository;
+    private final TicketCategoryRepository ticketCategoryRepository;
     private final BigDecimal currentVersion;
     private final String currentVersionAsString;
     private final ZonedDateTime buildTimestamp;
@@ -83,15 +80,16 @@ public class DataMigrator {
     @Autowired
     public DataMigrator(EventMigrationRepository eventMigrationRepository,
                         EventRepository eventRepository,
+                        TicketCategoryRepository ticketCategoryRepository,
                         @Value("${alfio.version}") String currentVersion,
                         @Value("${alfio.build-ts}") String buildTimestamp,
                         PlatformTransactionManager transactionManager,
-                        TicketRepository ticketRepository,
                         ConfigurationRepository configurationRepository,
-                        PluginConfigurationRepository pluginConfigurationRepository, NamedParameterJdbcTemplate jdbc) {
+                        PluginConfigurationRepository pluginConfigurationRepository,
+                        NamedParameterJdbcTemplate jdbc) {
         this.eventMigrationRepository = eventMigrationRepository;
         this.eventRepository = eventRepository;
-        this.ticketRepository = ticketRepository;
+        this.ticketCategoryRepository = ticketCategoryRepository;
         this.configurationRepository = configurationRepository;
         this.pluginConfigurationRepository = pluginConfigurationRepository;
         this.jdbc = jdbc;
@@ -124,9 +122,10 @@ public class DataMigrator {
             transactionTemplate.execute(s -> {
                 //optional.ifPresent(eventMigration -> eventMigrationRepository.lockEventMigrationForUpdate(eventMigration.getId()));
                 if(ZonedDateTime.now(event.getZoneId()).isBefore(event.getEnd())) {
-                    createMissingTickets(event);
+                    fixAvailableSeats(event);
                     fillDescriptions(event);
                     migratePluginConfig(event);
+                    fixCategoriesSize(event);
                 }
 
                 //migrate prices to new structure. This should be done for all events, regardless of the expiration date.
@@ -143,6 +142,19 @@ public class DataMigrator {
                 return null;
             });
         }
+    }
+
+    void fixCategoriesSize(Event event) {
+        ticketCategoryRepository.findByEventId(event.getId()).stream()
+            .filter(TicketCategory::isBounded)
+            .forEach(tc -> {
+                Integer result = jdbc.queryForObject("select count(*) from ticket where event_id = :eventId and category_id = :categoryId and status <> 'INVALIDATED'", new MapSqlParameterSource("eventId", tc.getEventId()).addValue("categoryId", tc.getId()), Integer.class);
+                if(result != null && result != tc.getMaxTickets()) {
+                    log.warn("********* updating category size for {} from {} to {} tickets", tc.getName(), tc.getMaxTickets(), result);
+                    ticketCategoryRepository.updateSeatsAvailability(tc.getId(), result);
+                }
+            });
+
     }
 
     void migratePluginConfig(Event event) {
@@ -177,12 +189,13 @@ public class DataMigrator {
         }
     }
 
-    private void createMissingTickets(Event event) {
-        int existingTickets = ticketRepository.countExistingTicketsForEvent(event.getId());
-        if(existingTickets < event.getAvailableSeats()) {
-            MapSqlParameterSource[] tickets = EventUtil.generateEmptyTickets(event, new Date(), event.getAvailableSeats() - existingTickets).toArray(MapSqlParameterSource[]::new);
-            jdbc.batchUpdate(ticketRepository.bulkTicketInitialization(), tickets);
-        }
+    /*
+     * even if we don't actively use the "available_seats" event property anymore, it makes sense to keep it synchronized
+     * in order to ensure backward compatibility
+     */
+    private void fixAvailableSeats(Event event) {
+        int availableSeats = eventRepository.countExistingTickets(event.getId());
+        eventRepository.updatePrices(event.getCurrency(), availableSeats, event.isVatIncluded(), event.getVat(), event.getAllowedPaymentProxies().stream().map(PaymentProxy::name).collect(joining(",")), event.getId(), event.getVatStatus(), event.getSrcPriceCts());
     }
 
     boolean needsFixing(EventMigration eventMigration) {

@@ -183,6 +183,16 @@
                 },
                 controllerAs: 'ctrl'
             })
+            .state('events.single.ticketsList', {
+                url: '/category/:categoryId/tickets',
+                template: '<tickets-list event="$ctrl.event" category-id="$ctrl.categoryId"></tickets-list>',
+                controller: ['loadEvent', '$stateParams', function(loadEvent, $stateParams) {
+                    this.event = loadEvent.data.event;
+                    this.categoryId = $stateParams.categoryId;
+                }],
+                controllerAs: '$ctrl',
+                resolve: loadEvent
+            })
             .state('events.single.pending-payments', {
                 url: '/pending-payments/',
                 templateUrl: BASE_STATIC_URL + '/pending-payments/index.html',
@@ -249,7 +259,7 @@
                 }
             });
 
-        growlProvider.globalPosition('middle-center');
+        growlProvider.globalPosition('bottom-right');
     });
 
     navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
@@ -305,15 +315,24 @@
         return deferred.promise;
     };
 
-    admin.controller('MenuController', ['$scope', '$http', '$window', 'UtilsService', function($scope, $http, $window, UtilsService) {
+    admin.controller('MenuController', ['$scope', '$http', '$window', 'UtilsService', '$state', '$rootScope', 'EventService', function($scope, $http, $window, UtilsService, $state, $rootScope, EventService) {
         var ctrl = this;
         ctrl.menuCollapsed = true;
+        ctrl.eventName = $state.params.eventName;
+        $rootScope.$on('$stateChangeSuccess', function(event, toState, toParams) {
+            ctrl.eventName = toParams.eventName;
+        });
         ctrl.toggleCollapse = function(currentStatus) {
             ctrl.menuCollapsed = !currentStatus;
         };
         ctrl.doLogout = function() {
             UtilsService.logout().then(function() {
                 $window.location.reload();
+            });
+        };
+        ctrl.openDeleteWarning = function() {
+            EventService.deleteEvent(ctrl.event).then(function(result) {
+                $state.go('index');
             });
         };
     }]);
@@ -585,7 +604,8 @@
                                                         $uibModal,
                                                         PAYMENT_PROXY_DESCRIPTIONS,
                                                         UtilsService,
-                                                        NotificationHandler) {
+                                                        NotificationHandler,
+                                                        $timeout) {
         var loadData = function() {
             $scope.loading = true;
 
@@ -612,8 +632,10 @@
 
                 $scope.loading = false;
                 $scope.loadingMap = true;
-                LocationService.getMapUrl(result.event.latitude, result.event.longitude).success(function(mapUrl) {
+                LocationService.getMapUrl(result.event.latitude, result.event.longitude).then(function(mapUrl) {
                     $scope.event.geolocation = {
+                        latitude: result.event.latitude,
+                        longitude: result.event.longitude,
                         mapUrl: mapUrl,
                         timeZone: result.event.timeZone
                     };
@@ -627,6 +649,7 @@
                 };
             });
         };
+        $scope.baseUrl = window.location.origin;
         loadData().then(function() {
             initScopeForEventEditing($scope, OrganizationService, PaymentProxyService, LocationService, EventService, $state, PAYMENT_PROXY_DESCRIPTIONS);
         });
@@ -673,10 +696,6 @@
             category.isTokenViewExpanded = !category.isTokenViewExpanded;
         };
 
-        $scope.toggleTicketViewCollapse = function(category) {
-            category.isTicketViewExpanded = !category.isTicketViewExpanded;
-        };
-
         $scope.isPending = function(token) {
             return token.status === 'WAITING';
         };
@@ -693,18 +712,24 @@
             });
         };
 
+        $scope.containsValidTokens = function(tokens) {
+            return _.all(tokens, function(t) {
+                return t.status !== 'WAITING';
+            });
+        };
+
         $scope.eventHeader = {};
         $scope.eventPrices = {};
 
         var validationErrorHandler = function(result, form, fieldsContainer) {
             return $q(function(resolve, reject) {
-                if(result.data['errorCount'] == 0) {
+                if(result.data['errorCount'] === 0) {
                     resolve(result);
                 } else {
                     _.forEach(result.data.validationErrors, function(error) {
                         var field = fieldsContainer[error.fieldName];
                         if(angular.isDefined(field)) {
-                            if (error.code == ERROR_CODES.DUPLICATE) {
+                            if (error.code === ERROR_CODES.DUPLICATE) {
                                 field.$setValidity(ERROR_CODES.DUPLICATE, false);
                                 field.$setTouched();
                             } else {
@@ -716,11 +741,6 @@
                     reject('validation error');
                 }
             });
-        };
-
-        var errorHandler = function(error) {
-            $log.error(error.data);
-            alert(error.data);
         };
 
         $scope.editHeader = function() {
@@ -747,7 +767,7 @@
                             validationErrorHandler(result, form, form.editEventHeader).then(function(result) {
                                 $scope.$close(eventHeader);
                             });
-                        }, errorHandler);
+                        });
                     };
                 }
             });
@@ -767,6 +787,7 @@
                 controller: function($scope) {
                     $scope.eventPrices = parentScope.eventPrices;
                     $scope.event = parentScope.event;
+                    var seats = $scope.event.availableSeats;
                     $scope.allowedPaymentProxies = parentScope.allowedPaymentProxies;
 
                     $scope.cancel = function() {
@@ -780,14 +801,28 @@
                         angular.extend(obj, eventPrices);
                         EventService.updateEventPrices(obj).then(function(result) {
                             validationErrorHandler(result, form, form.editPrices).then(function(result) {
-                                $scope.$close(eventPrices);
+                                $scope.$close(eventPrices.availableSeats !== seats);
                             });
-                        }, errorHandler);
+                        });
                     };
                 }
             });
-            editPrices.result.then(function() {
-                loadData();
+            editPrices.result.then(function(seatsModified) {
+                var message = "Modification applied. " + (seatsModified ? "Seats modification will become effective in 30s. The data will be reloaded automatically." : "");
+                loadData().then(function(res) {
+                    NotificationHandler.showSuccess(message);
+                    $rootScope.$emit('ReloadEventPie', res.data.event);
+                    if(seatsModified) {
+                        $timeout(function() {
+                            var info = NotificationHandler.showInfo("Reloading data...");
+                            loadData().then(function(res2) {
+                                info.destroy();
+                                NotificationHandler.showSuccess("Success!");
+                                $rootScope.$emit('ReloadEventPie', res2.data.event);
+                            });
+                        }, 30000 );
+                    }
+                });
             });
         };
 
@@ -824,7 +859,7 @@
                                 });
                                 $scope.$close(true);
                             });
-                        }, errorHandler);
+                        });
                     };
                 }
             });
@@ -858,21 +893,9 @@
                             validationErrorHandler(result, form, form).then(function() {
                                 $scope.$close(true);
                             });
-                        }, errorHandler);
+                        });
                     };
                 }
-            });
-        };
-
-        $scope.toggleLocking = function(event, ticket, category) {
-            EventService.toggleTicketLocking(event, ticket, category).then(function() {
-                loadData();
-            });
-        };
-
-        $scope.removeTicket = function(event, ticket) {
-            EventService.removeTicketModal(event, ticket.ticketReservation.id, ticket.id).then(function() {
-                loadData();
             });
         };
 
@@ -886,6 +909,7 @@
                 description: category.description,
                 maxTickets: category.maxTickets,
                 bounded: category.bounded,
+                code: category.code,
                 inception: {
                     date: inception.format('YYYY-MM-DD'),
                     time: inception.format('HH:mm')
@@ -992,6 +1016,9 @@
             [categoryFilterListener, eventUpdateListener].forEach(function(f) {f();});
         });
 
+        $scope.categoryHasDescriptions = function(category) {
+            return category && category.description ? Object.keys(category.description).length > 0 : false;
+        };
 
     });
 
@@ -1416,7 +1443,7 @@
 
 
         $q.all([EventService.getSelectedLanguages($stateParams.eventName),
-            EventService.getCategoriesContainingTickets($stateParams.eventName), EventService.getEvent($stateParams.eventName)])
+            EventService.getEvent($stateParams.eventName)])
         .then(function(results) {
                 $scope.messages = _.map(results[0].data, function(r) {
                     return {
@@ -1430,10 +1457,10 @@
                 });
                 $scope.fullName = 'John Doe';
 
-                $scope.categories = results[1].data;
+                $scope.categories = results[1].data.event.ticketCategories;
                 $scope.categoryId = undefined;
 
-                var eventDescriptor = results[2].data;
+                var eventDescriptor = results[1].data;
                 $scope.organization = eventDescriptor.organization;
                 $scope.eventName = eventDescriptor.event.shortName;
         });

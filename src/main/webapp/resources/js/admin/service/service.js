@@ -5,17 +5,19 @@
     baseServices.config(['$httpProvider', function($httpProvider) {
         var token = $("meta[name='_csrf']").attr("content");
         var header = $("meta[name='_csrf_header']").attr("content");
-        $httpProvider.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
-        $httpProvider.defaults.headers.common[header] = token;
+        $httpProvider.defaults.headers.post['X-Requested-With'] = 'XMLHttpRequest';
+        $httpProvider.defaults.headers.post[header] = token;
+
+        $httpProvider.defaults.headers.patch = angular.copy($httpProvider.defaults.headers.post);
+        $httpProvider.defaults.headers.put = angular.copy($httpProvider.defaults.headers.post);
+        $httpProvider.defaults.headers.delete = angular.copy($httpProvider.defaults.headers.post);
+
         $httpProvider.interceptors.push(['$rootScope', '$location', '$q', function($rootScope, $location, $q) {
             return {
                 responseError: function(rejection) {//thanks to https://github.com/witoldsz/angular-http-auth/blob/master/src/http-auth-interceptor.js
                     var status = rejection.status;
                     if(status === 401) {
                         $rootScope.$emit('ErrorNotLoggedIn');
-                        return false;
-                    } else if(status === 403) {
-                        $rootScope.$emit('ErrorNotAuthorized');
                         return false;
                     }
                     return $q.reject(rejection);
@@ -32,7 +34,14 @@
         };
     });
 
-    baseServices.service("EventService", function($http, HttpErrorHandler, $uibModal, $window, $rootScope, $q) {
+    baseServices.service("EventService", function($http, HttpErrorHandler, $uibModal, $window, $rootScope, $q, LocationService) {
+
+        function copyGeoLocation(event) {
+            event.latitude = event.geolocation.latitude;
+            event.longitude = event.geolocation.longitude;
+            event.zoneId = event.geolocation.timeZone;
+        }
+
         var service = {
             data: {},
             getAllEvents : function() {
@@ -58,13 +67,30 @@
                 return $http['post']('/admin/api/events/check', event).error(HttpErrorHandler.handle);
             },
             createEvent : function(event) {
+                copyGeoLocation(event);
                 return $http['post']('/admin/api/events/new', event).error(HttpErrorHandler.handle);
             },
             toggleActivation: function(id, active) {
                 return $http['put']('/admin/api/events/'+id+'/status?active='+active).error(HttpErrorHandler.handle);
             },
             updateEventHeader: function(eventHeader) {
-                return $http['post']('/admin/api/events/'+eventHeader.id+'/header/update', eventHeader).error(HttpErrorHandler.handle);
+                //
+                if(eventHeader.geolocation && eventHeader.geolocation.latitude) {
+                    copyGeoLocation(eventHeader);
+                    //
+                    return $http['post']('/admin/api/events/'+eventHeader.id+'/header/update', eventHeader).error(HttpErrorHandler.handle);
+                } else {
+                    return LocationService.clientGeolocate(eventHeader.location).then(function(geo) {
+                        eventHeader.latitude = geo.latitude;
+                        eventHeader.longitude = geo.longitude;
+                        eventHeader.zoneId = geo.timeZone;
+                        return $http['post']('/admin/api/events/'+eventHeader.id+'/header/update', eventHeader).error(HttpErrorHandler.handle);
+                    })
+                }
+
+            },
+            getTicketsForCategory: function(event, ticketCategory) {
+              return $http.get('/admin/api/events/'+event.shortName+'/category/'+ticketCategory.id+'/ticket').error(HttpErrorHandler.handle);
             },
             updateEventPrices: function(eventPrices) {
                 return $http['post']('/admin/api/events/'+eventPrices.id+'/prices/update', eventPrices).error(HttpErrorHandler.handle);
@@ -99,6 +125,9 @@
                     service.data.pendingPayments[eventName] = element;
                 }
                 return element.payments;
+            },
+            getPendingPaymentsCount: function(eventName) {
+                return $http.get('/admin/api/events/'+eventName+'/pending-payments-count').error(HttpErrorHandler.handle).then(function(res) {var v = parseInt(res.data); return isNaN(v) ? 0 : v; });
             },
             registerPayment: function(eventName, reservationId) {
                 return $http['post']('/admin/api/events/'+eventName+'/pending-payments/'+reservationId+'/confirm').error(HttpErrorHandler.handle);
@@ -135,9 +164,6 @@
                 var queryString = angular.isDefined(categoryId) && categoryId !== "" ? '?categoryId='+categoryId : '';
                 return $http['post']('/admin/api/events/'+eventName+'/messages/send'+queryString, messages).error(HttpErrorHandler.handle);
             },
-            getCategoriesContainingTickets: function(eventName) {
-                return $http['get']('/admin/api/events/'+eventName+'/categories-containing-tickets')
-            },
             getFields : function(eventName) {
                 return $http['get']('/admin/api/events/'+eventName+'/fields');
             },
@@ -149,6 +175,20 @@
             },
             addField: function(eventName, field) {
             	return $http.post('/admin/api/events/'+eventName+'/additional-field/new', field).error(HttpErrorHandler.handle);
+            },
+            updateField: function(eventName, toUpdate) {
+
+                //new restrictedValues are complex objects, already present restrictedValues are plain string
+                if(toUpdate && toUpdate.restrictedValues && toUpdate.restrictedValues.length > 0) {
+                    var res = [];
+                    for(var i = 0; i < toUpdate.restrictedValues.length; i++) {
+                        res.push(toUpdate.restrictedValues[i].isNew ? toUpdate.restrictedValues[i].value: toUpdate.restrictedValues[i]);
+                    }
+                    toUpdate.restrictedValues = res;
+                }
+                //
+
+                return $http['post']('/admin/api/events/'+eventName+'/additional-field/'+toUpdate.id, toUpdate);
             },
             deleteField: function(eventName, id) {
             	return $http['delete']('/admin/api/events/'+eventName+'/additional-field/'+id);
@@ -190,7 +230,7 @@
                         service.getFields(event.shortName).then(function(fields) {
                             $scope.fields = fields.data;
                             angular.forEach(fields.data, function(v) {
-                                $scope.selected[v] = false;
+                                $scope.selected[v.key] = false;
                             })
                         });
 
@@ -276,18 +316,91 @@
 
             cancelReservation: function(eventName, reservationId, refund, notify) {
                 return $http.post('/admin/api/reservation/event/'+eventName+'/'+reservationId+'/cancel?refund=' + refund+"&notify="+notify);
+            },
+
+            countInvoices: function(eventName) {
+                return $http.get('/admin/api/events/'+eventName+'/invoices/count').error(HttpErrorHandler.handle);
+            },
+
+            getSoldStatistics: function(eventName, from, to) {
+                return $http.get('/admin/api/events/'+eventName+'/ticket-sold-statistics', {params: {from: from, to: to}});
             }
         };
         return service;
     });
 
-    baseServices.service("LocationService", function($http, HttpErrorHandler) {
+    baseServices.service("LocationService", function($http, $q, HttpErrorHandler) {
+
+        function mapUrl(lat, lng, key) {
+            var keyParam = key ? ('&key='+encodeURIComponent(key)) : '';
+            return "https://maps.googleapis.com/maps/api/staticmap?center="+lat+","+lng+"&zoom=16&size=400x400&markers=color:blue%7Clabel:E%7C"+lat+","+lng+""+keyParam;
+        }
+
+        var reqCounter = 0;
+
         return {
-            geolocate : function(location) {
-                return $http.get('/admin/api/location/geo.json?location='+location).error(HttpErrorHandler.handle);
+            mapApiKey: function() {
+                return $http.get('/admin/api/location/maps-client-api-key.json').then(function(res) {
+                    return res.data;
+                });
+            },
+            clientGeolocate: function(location) {
+                var locService = this;
+                return $q(function(resolve, reject) {
+
+                    locService.mapApiKey().then(function(key) {
+                        var keyParam = key ? ('&key='+encodeURIComponent(key)) : '';
+
+                        if(!window.google || !window.google.maps) {
+
+                            reqCounter++;
+
+                            var script = document.createElement('script');
+
+                            var callBackName = 'clientGeolocate'+reqCounter;
+
+                            script.src = 'https://maps.googleapis.com/maps/api/js?libraries=places&callback='+callBackName+keyParam;
+                            document.head.appendChild(script);
+                            window[callBackName] = function() {
+                                search();
+                            }
+                        } else {
+                            search();
+                        }
+
+                        function search() {
+                            var geocoder = new window.google.maps.Geocoder();
+                            geocoder.geocode({'address': location}, function(results, status) {
+                                if (status === 'OK') {
+                                    var ret = {};
+                                    ret.latitude = ""+results[0].geometry.location.lat()
+                                    ret.longitude = ""+results[0].geometry.location.lng()
+                                    ret.mapUrl = mapUrl(ret.latitude, ret.longitude, key);
+                                    locService.getTimezone(ret.latitude, ret.longitude).then(function(res) {
+                                        if(res.data) {
+                                            ret.timeZone = res.data;
+                                        }
+                                        resolve(ret);
+                                    });
+                                } else {
+                                    reject();
+                                }
+                            });
+                        }
+                    })
+
+                });
+            },
+            getTimezone : function(latitude, longitude) {
+              return $http.get('/admin/api/location/timezone', {params: {lat: latitude, lng: longitude}});
+            },
+            getTimezones: function() {
+                return $http.get('/admin/api/location/timezones');
             },
             getMapUrl : function(latitude, longitude) {
-                return $http.get('/admin/api/location/map.json?lat='+latitude+'&long='+longitude).error(HttpErrorHandler.handle);
+                return this.mapApiKey().then(function(key) {
+                    return mapUrl(latitude, longitude, key);
+                }, HttpErrorHandler.handle);
             }
         };
     });
@@ -320,29 +433,44 @@
         }
     });
 
-    baseServices.service("HttpErrorHandler", function($rootScope, $log) {
-        return {
-            handle : function(error) {
-                $log.warn(error);
-                $rootScope.$broadcast('applicationError', error.message);
+    baseServices.service("HttpErrorHandler", ['$log', 'NotificationHandler', function($log, NotificationHandler) {
+        var getMessage = function(body, status) {
+            switch(status) {
+                case 400:
+                    return 'Malformed Request';
+                case 404:
+                    return 'Resource not found';
+                case 403:
+                    return 'Your account is not authorized to perform this operation.';
+                case 500:
+                    return 'Internal Server Error';
+                default:
+                    return 'Connection Error';
             }
         };
-    });
+        return {
+            handle : function(body, status) {
+                var message = getMessage(body, status);
+                $log.warn(message, status, body);
+                NotificationHandler.showError(message);
+            }
+        };
+    }]);
 
     baseServices.service("NotificationHandler", ["growl", function (growl) {
         var config = {ttl: 5000, disableCountDown: true};
         return {
             showSuccess: function (message) {
-                growl.success(message, config);
+                return growl.success(message, config);
             },
             showWarning: function (message) {
-                growl.warning(message, config);
+                return growl.warning(message, config);
             },
             showInfo : function (message) {
-                growl.info(message, config);
+                return growl.info(message, config);
             },
             showError : function (message) {
-                growl.error(message, config);
+                return growl.error(message, config);
             }
         }
 
@@ -471,8 +599,8 @@
 
     baseServices.service('WaitingQueueService', ['$http', 'HttpErrorHandler', function($http, HttpErrorHandler) {
         return {
-            countSubscribers: function(event) {
-                return $http.get('/admin/api/event/'+event.shortName+'/waiting-queue/count').error(HttpErrorHandler.handle);
+            countSubscribers: function(eventName) {
+                return $http.get('/admin/api/event/'+eventName+'/waiting-queue/count').error(HttpErrorHandler.handle);
             },
             loadAllSubscribers: function(eventName) {
                 return $http.get('/admin/api/event/'+eventName+'/waiting-queue/load').error(HttpErrorHandler.handle);

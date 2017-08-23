@@ -14,12 +14,19 @@
  * You should have received a copy of the GNU General Public License
  * along with alf.io.  If not, see <http://www.gnu.org/licenses/>.
  */
-package alfio.manager.location;
+package alfio.model;
 
-public class LocationNotFound extends RuntimeException {
+import ch.digitalfondue.npjt.ConstructorAnnotationRowMapper.Column;
+import lombok.Getter;
 
-    public LocationNotFound(String message) {
-        super(message);
+@Getter
+public class TicketSoldStatistic {
+    private final long ticketSoldCount;
+    private final String date;
+
+    public TicketSoldStatistic(@Column("ticket_sold") long ticketSoldCount,
+                               @Column("day") String date) {
+        this.ticketSoldCount = ticketSoldCount;
+        this.date = date;
     }
-
 }

@@ -19,6 +19,7 @@ package alfio.repository;
 import alfio.model.PriceContainer;
 import alfio.model.TicketReservation;
 import alfio.model.TicketReservationInfo;
+import alfio.model.TicketSoldStatistic;
 import ch.digitalfondue.npjt.*;
 
 import java.time.ZonedDateTime;
@@ -50,19 +51,22 @@ public interface TicketReservationRepository {
     @Query("update tickets_reservation set full_name = :fullName where id = :reservationId")
     int updateAssignee(@Bind("reservationId") String reservationId, @Bind("fullName") String fullName);
 
-    @Query("select id from tickets_reservation where status = 'OFFLINE_PAYMENT'")
-    List<String> findAllReservationsWaitingForPayment();
+    @Query("select id from tickets_reservation where status = 'OFFLINE_PAYMENT' and event_id_fk = :eventId")
+    List<String> findAllReservationsWaitingForPaymentInEventId(@Bind("eventId") int eventId);
+
+    @Query("select count(id) from tickets_reservation where status = 'OFFLINE_PAYMENT' and event_id_fk = :eventId")
+    Integer findAllReservationsWaitingForPaymentCountInEventId(@Bind("eventId") int eventId);
 
     @Query("select * from tickets_reservation where status = 'OFFLINE_PAYMENT' and trunc(validity) <= :expiration and offline_payment_reminder_sent = false")
     @QueriesOverride({
         @QueryOverride(value = "select * from tickets_reservation where status = 'OFFLINE_PAYMENT' and date_trunc('day', validity) <= :expiration and offline_payment_reminder_sent = false", db = "PGSQL"),
-        @QueryOverride(value = "select * from tickets_reservation where status = 'OFFLINE_PAYMENT' and date('day') <= :expiration and offline_payment_reminder_sent = false", db = "MYSQL")})
+        @QueryOverride(value = "select * from tickets_reservation where status = 'OFFLINE_PAYMENT' and date(validity) <= :expiration and offline_payment_reminder_sent = false", db = "MYSQL")})
     List<TicketReservation> findAllOfflinePaymentReservationForNotification(@Bind("expiration") Date expiration);
 
     @Query("select id, full_name, first_name, last_name, email_address, event_id_fk from tickets_reservation where status = 'OFFLINE_PAYMENT' and trunc(validity) <= :expiration and event_id_fk = :eventId")
     @QueriesOverride({
         @QueryOverride(value = "select id, full_name, first_name, last_name, email_address, event_id_fk from tickets_reservation where status = 'OFFLINE_PAYMENT' and date_trunc('day', validity) <= :expiration and event_id_fk = :eventId", db = "PGSQL"),
-        @QueryOverride(value = "select id, full_name, first_name, last_name, email_address, event_id_fk from tickets_reservation where status = 'OFFLINE_PAYMENT' and date('day') <= :expiration and event_id_fk = :eventId", db = "MYSQL")})
+        @QueryOverride(value = "select id, full_name, first_name, last_name, email_address, event_id_fk from tickets_reservation where status = 'OFFLINE_PAYMENT' and date(validity) <= :expiration and event_id_fk = :eventId", db = "MYSQL")})
     List<TicketReservationInfo> findAllOfflinePaymentReservationWithExpirationBefore(@Bind("expiration") ZonedDateTime expiration, @Bind("eventId") int eventId);
 
     @Query("update tickets_reservation set offline_payment_reminder_sent = true where id = :reservationId")
@@ -107,8 +111,11 @@ public interface TicketReservationRepository {
     @Query("update tickets_reservation set invoice_number = :invoiceNumber where id = :reservationId")
     int setInvoiceNumber(@Bind("reservationId") String reservationId, @Bind("invoiceNumber") String invoiceNumber);
 
-    @Query("select * from  tickets_reservation where invoice_number is not null and event_id_fk = :eventId order by confirmation_ts desc, validity desc")
+    @Query("select * from tickets_reservation where invoice_number is not null and event_id_fk = :eventId order by confirmation_ts desc, validity desc")
     List<TicketReservation> findAllReservationsWithInvoices(@Bind("eventId") int eventId);
+
+    @Query("select count(*) from tickets_reservation where invoice_number is not null and event_id_fk = :eventId")
+    Integer countInvoices(@Bind("eventId") int eventId);
 
     @Query("select * from tickets_reservation where event_id_fk = :eventId order by confirmation_ts desc, validity desc")
     List<TicketReservation> findAllReservationsInEvent(@Bind("eventId") int eventId);
@@ -119,4 +126,27 @@ public interface TicketReservationRepository {
                           @Bind("vatCountry") String country,
                           @Bind("invoiceRequested") boolean invoiceRequested,
                           @Bind("reservationId") String reservationId);
+
+
+    @Query("select count(ticket.id) ticket_sold, to_char(trunc(confirmation_ts), 'yyyy-MM-dd') as day from ticket " +
+        "inner join tickets_reservation on tickets_reservation_id = tickets_reservation.id where " +
+        "ticket.event_id = :eventId and " +
+        "confirmation_ts is not null and " +
+        "confirmation_ts >= :from and " +
+        "confirmation_ts <= :to " +
+        "group by day order by day asc")
+    @QueriesOverride({
+        @QueryOverride(value = "select count(ticket.id) ticket_sold, to_char(date_trunc('day', confirmation_ts), 'YYYY-MM-DD') as day from ticket " +
+            "inner join tickets_reservation on tickets_reservation_id = tickets_reservation.id where " +
+            "ticket.event_id = :eventId and " +
+            "confirmation_ts is not null and " +
+            "confirmation_ts >= :from and " +
+            "confirmation_ts <= :to  group by day order by day asc", db = "PGSQL"),
+        @QueryOverride(value = "select count(ticket.id) ticket_sold, date_format(date(confirmation_ts), '%Y-%m-%d') as day from ticket " +
+            "inner join tickets_reservation on tickets_reservation_id = tickets_reservation.id where " +
+            "ticket.event_id = :eventId and " +
+            "confirmation_ts is not null and " +
+            "confirmation_ts >= :from and " +
+            "confirmation_ts <= :to group by day order by day asc", db = "MYSQL")})
+    List<TicketSoldStatistic> getSoldStatistic(@Bind("eventId") int eventId, @Bind("from") Date from, @Bind("to") Date to);
 }

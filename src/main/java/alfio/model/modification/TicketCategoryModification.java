@@ -43,6 +43,7 @@ public class TicketCategoryModification {
     private final boolean tokenGenerationRequested;
     private final String dateString;
     private final boolean bounded;
+    private final String code;
 
     @JsonCreator
     public TicketCategoryModification(@JsonProperty("id") Integer id,
@@ -54,7 +55,8 @@ public class TicketCategoryModification {
                                       @JsonProperty("price") BigDecimal price,
                                       @JsonProperty("tokenGenerationRequested") boolean tokenGenerationRequested,
                                       @JsonProperty("dateString") String dateString,
-                                      @JsonProperty("bounded") boolean bounded) {
+                                      @JsonProperty("bounded") boolean bounded,
+                                      @JsonProperty("code") String code) {
         this.id = id;
         this.name = name;
         this.maxTickets = maxTickets;
@@ -65,20 +67,21 @@ public class TicketCategoryModification {
         this.tokenGenerationRequested = tokenGenerationRequested;
         this.dateString = dateString;
         this.bounded = bounded;
+        this.code = code;
     }
 
     public int getPriceInCents() {
         return Optional.ofNullable(price).map(MonetaryUtil::unitToCents).orElse(0);
     }
 
-    public static TicketCategoryModification fromTicketCategory(TicketCategory tc, List<TicketCategoryDescription> ticketCategoryDescriptions, ZoneId zoneId) {
+    public static TicketCategoryModification fromTicketCategory(TicketCategory tc, Map<String, String> ticketCategoryDescriptions, ZoneId zoneId) {
         return new TicketCategoryModification(tc.getId(),
                 tc.getName(),
                 tc.getMaxTickets(),
                 DateTimeModification.fromZonedDateTime(tc.getInception(zoneId)),
                 DateTimeModification.fromZonedDateTime(tc.getExpiration(zoneId)),
-                ticketCategoryDescriptions.stream().collect(Collectors.toMap(TicketCategoryDescription::getLocale, TicketCategoryDescription::getDescription)),
+                ticketCategoryDescriptions,
                 tc.getPrice(),
-                tc.isAccessRestricted(), "", tc.isBounded());
+                tc.isAccessRestricted(), "", tc.isBounded(), tc.getCode());
     }
 }

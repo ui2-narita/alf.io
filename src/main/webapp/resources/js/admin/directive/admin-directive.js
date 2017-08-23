@@ -10,27 +10,6 @@
 
     var directives = angular.module('adminDirectives', ['ui.bootstrap', 'adminServices']);
 
-    directives.directive('eventsList', function() {
-        return {
-            scope: true,
-            templateUrl: '/resources/angular-templates/admin/partials/main/events.html',
-            controller: function($scope, EventService) {
-
-                $scope.loading = true;
-
-                EventService.getAllActiveEvents().success(function(data) {
-                    $scope.events = data;
-                    $scope.loading = false;
-                });
-
-                $scope.supportsOfflinePayments = function(event) {
-                    return _.contains(event.allowedPaymentProxies, 'OFFLINE');
-                };
-            },
-            link: angular.noop
-        };
-    });
-
     directives.directive('dateRange', function() {
         return {
             restrict: 'A',
@@ -340,6 +319,10 @@
                     };
                 }
 
+                LocationService.getTimezones().then(function(res) {
+                    $scope.timezones = res.data;
+                });
+
                 $scope.selectedLanguages = {};
 
                 EventService.getSupportedLanguages().success(function(result) {
@@ -378,11 +361,11 @@
                         return;
                     }
                     $scope.loadingMap = true;
-                    LocationService.geolocate(location).success(function(result) {
+                    LocationService.clientGeolocate(location).then(function(result) {
                         delete $scope['mapError'];
                         $scope.obj['geolocation'] = result;
                         $scope.loadingMap = false;
-                    }).error(function(e) {
+                    }, function(e) {
                         $scope.mapError = e;
                         delete $scope.obj['geolocation'];
                         $scope.loadingMap = false;
@@ -511,6 +494,8 @@
                     return angular.isDefined(index) ? index + "-" + name : name;
                 }
 
+                $scope.baseUrl = window.location.origin;
+
                 $scope.isLanguagePresent = function(locales, value) {
                     return (locales & value) === value;
                 }
@@ -520,26 +505,24 @@
 
     directives.directive('pendingPaymentsLink', ['$rootScope', '$interval', 'EventService', function($rootScope, $interval, EventService) {
         return {
-            restrict: 'E',
+            restrict: 'AE',
             scope: {
-                event: '=',
+                eventName: '=',
                 styleClass: '@'
             },
             bindToController: true,
             controllerAs: 'ctrl',
-            template: '<a ng-class="ctrl.styleClass" data-ui-sref="events.single.pending-payments({eventName: ctrl.event.shortName})"><i class="fa fa-dollar"></i> Pending Payments <pending-payments-badge event-name="{{ctrl.event.shortName}}"></pending-payments-badge></a>',
+            template: '<a ng-class="ctrl.styleClass" data-ui-sref="events.single.pending-payments({eventName: ctrl.eventName})"><i class="fa fa-dollar"></i> Pending Payments <pending-payments-badge event-name="{{ctrl.eventName}}"></pending-payments-badge></a>',
             controller: ['$scope', function($scope) {
                 var ctrl = this;
-                var eventName = ctrl.event.shortName;
                 ctrl.styleClass = ctrl.styleClass || 'btn btn-warning';
                 var getPendingPayments = function() {
-                    EventService.getPendingPayments(eventName).success(function(data) {
-                        ctrl.pendingReservations = data.length;
-                        $rootScope.$broadcast('PendingReservationsFound', data);
+                    EventService.getPendingPaymentsCount(ctrl.eventName).then(function(count) {
+                        $rootScope.$broadcast('PendingReservationsFound', count);
                     });
                 };
                 getPendingPayments();
-                var promise = $interval(getPendingPayments, 1000);
+                var promise = $interval(getPendingPayments, 10000);
 
                 $scope.$on('$destroy', function() {
                     $interval.cancel(promise);
@@ -550,17 +533,18 @@
 
     directives.directive('pendingPaymentsBadge', function($rootScope, $interval, EventService) {
         return {
-            restrict: 'E',
+            restrict: 'AE',
             scope: false,
-            template: '<span class="badge">{{pendingReservations}}</span>',
+            template: '<span ng-class="styleClass">{{pendingReservationsCount}}</span>',
             link: function(scope, element, attrs) {
                 var eventName = attrs.eventName;
-                scope.pendingReservations = 0;
+                scope.pendingReservationsCount = 0;
+                scope.styleClass = attrs.styleClass || "badge";
                 if(angular.isDefined(eventName)) {
                     var getPendingPayments = function() {
-                        EventService.getPendingPayments(eventName).success(function(data) {
-                            scope.pendingReservations = data.length;
-                            $rootScope.$broadcast('PendingReservationsFound', data);
+                        EventService.getPendingPaymentsCount(eventName).then(function(count) {
+                            scope.pendingReservationsCount = count;
+                            $rootScope.$broadcast('PendingReservationsFound', count);
                         });
                     };
                     getPendingPayments();
@@ -570,8 +554,11 @@
                         $interval.cancel(promise);
                     });
                 } else {
-                    $rootScope.$on('PendingReservationsFound', function(data) {
-                        scope.pendingReservations = data.length;
+                    var listener = $rootScope.$on('PendingReservationsFound', function(data) {
+                        scope.pendingReservationsCount = data;
+                    });
+                    element.on('$destroy', function() {
+                        listener();
                     });
                 }
             }
@@ -651,6 +638,10 @@
                     $scope.loading = true;
                     $scope.deleteHandler({config: config}).then(function() {$rootScope.$broadcast('ReloadSettings');});
                 };
+                $scope.getLabelValue = function(setting) {
+                    return (setting && setting.configurationPathLevel) ? setting.configurationPathLevel.toLowerCase() : "";
+                };
+                $scope.showDeleteBtn = $scope.displayDelete && $scope.setting.id > -1 && $scope.setting.componentType !== 'BOOLEAN';
             }
         }
     });
@@ -676,21 +667,22 @@
 
     directives.directive('waitingQueueDisplayCounter', function() {
         return {
-            restrict: 'E',
+            restrict: 'AE',
             bindToController: true,
             scope: {
-                event: '=',
-                styleClass: '@'
+                eventName: '=',
+                styleClass: '@',
+                justCount: '='
             },
             controllerAs: 'ctrl',
             controller: function(WaitingQueueService) {
                 var ctrl = this;
-                WaitingQueueService.countSubscribers(this.event).success(function(result) {
+                WaitingQueueService.countSubscribers(ctrl.eventName).success(function(result) {
                     ctrl.count = result;
                 });
                 ctrl.styleClass = ctrl.styleClass || 'btn btn-warning';
             },
-            template: '<a data-ng-class="ctrl.styleClass" data-ui-sref="events.single.show-waiting-queue({eventName: ctrl.event.shortName})"><i class="fa fa-group"></i> Waiting queue <span class="badge">{{ctrl.count}}</span></a>'
+            template: '<a data-ng-class="ctrl.styleClass" data-ui-sref="events.single.show-waiting-queue({eventName: ctrl.eventName})"><i class="fa fa-group" ng-if="!ctrl.justCount"></i> <span ng-class="{\'sr-only\': ctrl.justCount}">Waiting queue</span> <span ng-class="{\'badge\': !ctrl.justCount}">{{ctrl.count}}</span></a>'
         }
     });
 
@@ -766,7 +758,7 @@
             scope: {},
             controllerAs: 'ctrl',
             templateUrl: '/resources/angular-templates/admin/partials/main/sidebar.html',
-            controller: ['$location', '$anchorScroll', '$scope', function($location, $anchorScroll, $scope) {
+            controller: ['$location', '$anchorScroll', '$scope', 'NotificationHandler', function($location, $anchorScroll, $scope, NotificationHandler) {
                 var ctrl = this;
                 var toUnbind = [];
                 var detectCurrentView = function(state) {
@@ -797,7 +789,14 @@
                                 $window.open($window.location.pathname+"/api/events/"+ctrl.event.shortName+"/sponsor-scan/export.csv");
                             };
                             ctrl.downloadInvoices = function() {
-                                $window.open($window.location.pathname+"/api/events/"+ctrl.event.shortName+"/all-invoices");
+                                EventService.countInvoices(ctrl.event.shortName).then(function (res) {
+                                    var count = res.data;
+                                    if(count > 0) {
+                                        $window.open($window.location.pathname+"/api/events/"+ctrl.event.shortName+"/all-invoices");
+                                    } else {
+                                        NotificationHandler.showInfo("No invoices have been found.");
+                                    }
+                                });
                             };
                             ctrl.goToCategory = function(category) {
                                 ctrl.navigateTo('ticket-category-'+category.id);
@@ -900,6 +899,18 @@
             scope: {},
             template: '<div class="markdown-help text-right"><img class="markdown-logo" src="../resources/images/markdown-logo.svg" /> <a href="http://commonmark.org/help/" target="_blank">Markdown (CommonMark) supported</a></div> '
         };
-    })
+    });
+
+    directives.directive('containerFluidResponsive', ['$window', function($window) {
+        return {
+            restrict: 'A',
+            scope: false,
+            link: function(scope, element, attrs) {
+                if($window.matchMedia('screen and (max-width: 991px)').matches) {
+                    element.removeClass('container');
+                }
+            }
+        };
+    }])
     
 })();
